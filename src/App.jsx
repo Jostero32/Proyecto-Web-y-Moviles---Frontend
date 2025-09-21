@@ -10,6 +10,7 @@ import {
 import Header from './components/common/Header';
 import Footer from './components/common/Footer';
 import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function Main() {
       <main>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
         </Routes>
       </main>
 
