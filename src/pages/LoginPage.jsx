@@ -87,11 +87,13 @@ function LoginPage() {
           {/* Header con logo */}
           <div className="text-center mb-8">
             <div className="relative inline-block mb-4">
-              <img
-                src={logo}
-                alt="Shop&Buy logo"
-                className="w-20 h-20 object-contain mx-auto animate-glow"
-              />
+              <div className="w-20 h-20 rounded-full bg-white shadow-lg p-2 mx-auto">
+                <img
+                  src={logo}
+                  alt="Shop&Buy logo"
+                  className="w-full h-full object-contain rounded-full animate-glow"
+                />
+              </div>
               <div className="absolute inset-0 rounded-full border-2 border-dashed opacity-30 animate-spin" style={{ borderColor: '#CF5C36', animationDuration: '10s' }}></div>
             </div>
             <h1 className="text-3xl font-black mb-2" style={{ color: '#CF5C36' }}>
