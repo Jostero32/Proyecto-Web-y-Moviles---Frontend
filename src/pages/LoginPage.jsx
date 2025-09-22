@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { authAPI } from '../services/api';
 import logo from '../assets/Logo de Shop&Buy.png';
 
 function LoginPage() {
@@ -8,6 +9,9 @@ function LoginPage() {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -15,12 +19,45 @@ function LoginPage() {
       ...prev,
       [name]: value
     }));
+    // Limpiar error cuando el usuario empiece a escribir
+    if (error) setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Aquí iría la lógica de autenticación
-    console.log('Login attempt:', formData);
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await authAPI.login(formData.email, formData.password);
+      
+      // Guardar token y datos del usuario en localStorage
+      if (response.token) {
+        localStorage.setItem('authToken', response.token);
+        localStorage.setItem('userData', JSON.stringify(response.user));
+        
+        // Mostrar mensaje de éxito
+        console.log('Login exitoso:'/*, response*/);
+        
+        // Redirigir al dashboard o página principal
+        navigate('/dashboard'); // Cambia esta ruta según tu aplicación
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      
+      // Manejar diferentes tipos de errores
+      if (error.response?.status === 401) {
+        setError('Credenciales incorrectas. Verifica tu email y contraseña.');
+      } else if (error.response?.status === 404) {
+        setError('Usuario no encontrado.');
+      } else if (error.code === 'ECONNREFUSED') {
+        setError('No se puede conectar al servidor. Verifica que el backend esté corriendo.');
+      } else {
+        setError(error.response?.data?.message || 'Error al iniciar sesión. Inténtalo de nuevo.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -132,13 +169,38 @@ function LoginPage() {
               </Link>
             </div>
 
+            {/* Mensaje de error */}
+            {error && (
+              <div className="animate-fadeInUp bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                <div className="flex items-center">
+                  <span className="mr-2">⚠️</span>
+                  {error}
+                </div>
+              </div>
+            )}
+
             {/* Botón de login */}
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-orange-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 futuristic-border animate-fadeInUp"
-              style={{ backgroundColor: '#CF5C36', animationDelay: '0.5s' }}
+              disabled={isLoading}
+              className={`w-full py-3 px-4 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 futuristic-border animate-fadeInUp ${
+                isLoading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-orange-600 hover:bg-orange-700'
+              }`}
+              style={{ 
+                backgroundColor: isLoading ? '#9CA3AF' : '#CF5C36', 
+                animationDelay: '0.5s' 
+              }}
             >
-              🚀 Entrar a Shop&Buy
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Iniciando sesión...
+                </div>
+              ) : (
+                '🚀 Entrar a Shop&Buy'
+              )}
             </button>
           </form>
 
