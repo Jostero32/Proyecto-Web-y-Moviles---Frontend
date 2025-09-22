@@ -56,41 +56,48 @@ function RegisterPage() {
   };
 
   return (
-    <div className="h-screen relative overflow-hidden flex items-center justify-center px-4" style={{ backgroundColor: '#EEE5E9' }}>
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-2 sm:p-4" style={{ backgroundColor: '#EEE5E9' }}>
+      {/* Partículas flotantes de fondo - reducidas */}
       <div className="floating-particles absolute inset-0 pointer-events-none">
-        <div className="particle"></div>
-        <div className="particle"></div>
         <div className="particle"></div>
         <div className="particle"></div>
         <div className="particle"></div>
       </div>
 
-      <div className="absolute top-4 left-4 w-16 h-16 rounded-full opacity-10 animate-morphing" style={{ backgroundColor: '#CF5C36' }}></div>
-      <div className="absolute bottom-4 right-4 w-12 h-12 rounded-full opacity-10 animate-float" style={{ backgroundColor: '#EFC88B' }}></div>
-      <div className="w-full max-w-xl mx-auto animate-scaleIn h-full flex items-center">
-        <div className="bg-white rounded-3xl shadow-2xl p-7 glass-effect hover-elevate w-full max-h-[96vh] overflow-hidden">
-          <div className="text-center mb-6">
-            <div className="relative inline-block mb-4">
+      {/* Elementos decorativos de fondo - más pequeños */}
+      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 w-6 h-6 sm:w-12 sm:h-12 rounded-full opacity-10 animate-morphing" style={{ backgroundColor: '#CF5C36' }}></div>
+      <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 w-4 h-4 sm:w-8 sm:h-8 rounded-full opacity-10 animate-float" style={{ backgroundColor: '#EFC88B' }}></div>
+
+      {/* Contenedor principal responsive */}
+      <div className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto">
+        {/* Tarjeta de registro compacta */}
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl p-3 sm:p-4 lg:p-5 glass-effect hover-elevate w-full max-h-[95vh] overflow-y-auto">
+          {/* Header con logo compacto */}
+          <div className="text-center mb-2 sm:mb-3">
+            <div className="relative inline-block mb-1 sm:mb-2">
               <img
                 src={logo}
                 alt="Shop&Buy logo"
-                className="w-18 h-18 object-contain mx-auto animate-glow"
+                className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 object-contain mx-auto animate-glow"
               />
               <div className="absolute inset-0 rounded-full border-2 border-dashed opacity-30 animate-spin" style={{ borderColor: '#CF5C36', animationDuration: '10s' }}></div>
             </div>
-            <h1 className="text-3xl font-black mb-3" style={{ color: '#CF5C36' }}>
+            <h1 className="text-base sm:text-lg lg:text-xl font-black mb-1" style={{ color: '#CF5C36' }}>
               ¡Únete a Shop&Buy!
             </h1>
-            <p className="text-gray-600 text-base">Crea tu cuenta y empieza a comprar y vender</p>
+            <p className="text-gray-600 text-xs sm:text-sm">Crea tu cuenta</p>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="text-center animate-fadeInUp" style={{ animationDelay: '0.1s' }}>
+
+          <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-3">
+            {/* Avatar upload compacto */}
+            <div className="text-center">
               <div className="relative inline-block">
-                <div className="w-22 h-22 rounded-full border-4 border-gray-200 overflow-hidden bg-gray-100 mx-auto">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full border-2 border-gray-200 overflow-hidden bg-gray-100 mx-auto">
                   {avatarPreview ? (
                     <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm sm:text-base lg:text-lg">
+                      👤
                     </div>
                   )}
                 </div>
@@ -103,16 +110,18 @@ function RegisterPage() {
                 />
                 <label
                   htmlFor="avatar"
-                  className="absolute bottom-0 right-0 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+                  className="absolute bottom-0 right-0 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
                   style={{ backgroundColor: '#CF5C36' }}
                 >
-                  <span className="text-white text-sm">📷</span>
+                  <span className="text-white text-xs">📷</span>
                 </label>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="animate-fadeInLeft" style={{ animationDelay: '0.2s' }}>
-                <label htmlFor="name" className="block text-base font-semibold text-gray-700 mb-2">
+
+            {/* Nombres y Apellidos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <div>
+                <label htmlFor="name" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   Nombres
                 </label>
                 <input
@@ -121,14 +130,14 @@ function RegisterPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-base"
-                  placeholder="Juan Carlos"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
+                  placeholder="Juan"
                   required
                 />
               </div>
 
-              <div className="animate-fadeInRight" style={{ animationDelay: '0.2s' }}>
-                <label htmlFor="lastname" className="block text-base font-semibold text-gray-700 mb-2">
+              <div>
+                <label htmlFor="lastname" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   Apellidos
                 </label>
                 <input
@@ -137,15 +146,17 @@ function RegisterPage() {
                   name="lastname"
                   value={formData.lastname}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-base"
-                  placeholder="Pérez García"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
+                  placeholder="Pérez"
                   required
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="animate-fadeInLeft" style={{ animationDelay: '0.3s' }}>
-                <label htmlFor="dni" className="block text-base font-semibold text-gray-700 mb-2">
+
+            {/* Cédula y Celular */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <div>
+                <label htmlFor="dni" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   Cédula
                 </label>
                 <input
@@ -154,7 +165,7 @@ function RegisterPage() {
                   name="dni"
                   value={formData.dni}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-base"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
                   placeholder="1234567890"
                   pattern="[0-9]{10}"
                   maxLength="10"
@@ -162,8 +173,8 @@ function RegisterPage() {
                 />
               </div>
 
-              <div className="animate-fadeInRight" style={{ animationDelay: '0.3s' }}>
-                <label htmlFor="phone" className="block text-base font-semibold text-gray-700 mb-2">
+              <div>
+                <label htmlFor="phone" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   Celular
                 </label>
                 <input
@@ -172,7 +183,7 @@ function RegisterPage() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-base"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
                   placeholder="0987654321"
                   pattern="[0-9]{10}"
                   maxLength="10"
@@ -180,9 +191,11 @@ function RegisterPage() {
                 />
               </div>
             </div>
-            <div className="animate-fadeInUp" style={{ animationDelay: '0.4s' }}>
-              <label htmlFor="email" className="block text-base font-semibold text-gray-700 mb-2">
-                Correo electrónico
+
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
+                Email
               </label>
               <div className="relative">
                 <input
@@ -191,18 +204,20 @@ function RegisterPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 pr-11 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-base"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-9 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
                   placeholder="tu@email.com"
                   required
                 />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-base">
+                <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs sm:text-sm">
                   📧
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="animate-fadeInLeft" style={{ animationDelay: '0.5s' }}>
-                <label htmlFor="password" className="block text-base font-semibold text-gray-700 mb-2">
+
+            {/* Contraseñas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <div>
+                <label htmlFor="password" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   Contraseña
                 </label>
                 <div className="relative">
@@ -212,24 +227,24 @@ function RegisterPage() {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 pr-11 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-base"
-                    placeholder="Mínimo 8 caracteres"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-9 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
+                    placeholder="8+ chars"
                     minLength="8"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-base"
+                    className="absolute right-1 sm:right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-xs sm:text-sm"
                   >
                     {showPassword ? '🙈' : '👁️'}
                   </button>
                 </div>
               </div>
 
-              <div className="animate-fadeInRight" style={{ animationDelay: '0.5s' }}>
-                <label htmlFor="confirmPassword" className="block text-base font-semibold text-gray-700 mb-2">
-                  Confirmar contraseña
+              <div>
+                <label htmlFor="confirmPassword" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
+                  Confirmar
                 </label>
                 <div className="relative">
                   <input
@@ -238,66 +253,73 @@ function RegisterPage() {
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 pr-11 rounded-lg border border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-base"
-                    placeholder="Repite tu contraseña"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-9 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
+                    placeholder="Repite"
                     minLength="8"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-base"
+                    className="absolute right-1 sm:right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-xs sm:text-sm"
                   >
                     {showConfirmPassword ? '🙈' : '👁️'}
                   </button>
                 </div>
               </div>
             </div>
-            <div className="animate-fadeInUp" style={{ animationDelay: '0.6s' }}>
-              <label className="flex items-start gap-3">
+
+            {/* Términos y condiciones compacto */}
+            <div>
+              <label className="flex items-start gap-1.5 sm:gap-2">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 mt-1 rounded border-gray-300 focus:ring-orange-500 flex-shrink-0"
+                  className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 rounded border-gray-300 focus:ring-orange-500 flex-shrink-0"
                   style={{ accentColor: '#CF5C36' }}
                   required
                 />
-                <span className="text-base text-gray-600">
-                  Acepto los{' '}
+                <span className="text-xs sm:text-sm text-gray-600 leading-tight">
+                  Acepto{' '}
                   <Link to="#" className="font-medium hover:underline" style={{ color: '#CF5C36' }}>
-                    términos y condiciones
+                    términos
                   </Link>
-                  {' '}y la{' '}
+                  {' '}y{' '}
                   <Link to="#" className="font-medium hover:underline" style={{ color: '#CF5C36' }}>
-                    política de privacidad
+                    privacidad
                   </Link>
                 </span>
               </label>
             </div>
+
+            {/* Botón de registro compacto */}
             <button
               type="submit"
-              className="w-full py-4 px-5 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 futuristic-border animate-fadeInUp text-base"
-              style={{ backgroundColor: '#CF5C36', animationDelay: '0.7s' }}
+              className="w-full py-2 sm:py-2.5 px-3 sm:px-4 text-white font-bold rounded shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-xs sm:text-sm"
+              style={{ backgroundColor: '#CF5C36' }}
             >
-              Crear cuenta en Shop&Buy
+              Crear cuenta
             </button>
-            <div className="flex justify-between items-center text-xs mt-4">
+
+            {/* Enlaces del footer compacto */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-1 sm:gap-2 text-xs mt-2">
               <Link
                 to="/login"
-                className="font-semibold hover:underline"
+                className="font-semibold hover:underline order-1 sm:order-none"
                 style={{ color: '#CF5C36' }}
               >
                 ¿Ya tienes cuenta?
               </Link>
-              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full opacity-50">
-                <span className="text-green-500 opacity-70 text-xs">🛡️</span>
-                <span className="text-xs font-medium text-gray-400 opacity-80">Seguro</span>
+
+              <div className="inline-flex items-center gap-1 opacity-50 order-3 sm:order-none">
+                <span className="text-green-500 text-xs">🛡️</span>
+                <span className="text-xs font-medium text-gray-400">Seguro</span>
               </div>
 
               <Link
                 to="/"
-                className="text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-gray-500 hover:text-gray-700 transition-colors order-2 sm:order-none"
               >
-                ← Volver al inicio
+                ← Inicio
               </Link>
             </div>
           </form>
