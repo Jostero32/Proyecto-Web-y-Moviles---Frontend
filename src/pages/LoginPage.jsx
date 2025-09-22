@@ -37,7 +37,7 @@ function LoginPage() {
         localStorage.setItem('userData', JSON.stringify(response.user));
         
         // Mostrar mensaje de éxito
-        console.log('Login exitoso:', response);
+        console.log('Login exitoso:'/*, response*/);
         
         // Redirigir al dashboard o página principal
         navigate('/dashboard'); // Cambia esta ruta según tu aplicación
