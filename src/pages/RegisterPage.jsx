@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { authAPI } from '../services/api';
 import logo from '../assets/Logo de Shop&Buy.png';
 
 function RegisterPage() {
@@ -11,11 +12,16 @@ function RegisterPage() {
     password: '',
     confirmPassword: '',
     phone: '',
-    avatarUrl: null
+    avatarUrl: null,
+    roleName: 'User' // Rol por defecto
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -23,6 +29,9 @@ function RegisterPage() {
       ...prev,
       [name]: value
     }));
+    // Limpiar mensajes cuando el usuario empiece a escribir
+    if (error) setError('');
+    if (success) setSuccess('');
   };
 
   const handleFileChange = (e) => {
@@ -42,17 +51,72 @@ function RegisterPage() {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    // Validar que las contraseñas coincidan
+  const validateForm = () => {
     if (formData.password !== formData.confirmPassword) {
-      alert('Las contraseñas no coinciden');
-      return;
+      setError('Las contraseñas no coinciden');
+      return false;
     }
+    if (formData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return false;
+    }
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      setError('Email no válido');
+      return false;
+    }
+    if (!formData.dni || !formData.name || !formData.lastname || !formData.phone) {
+      setError('Todos los campos son requeridos');
+      return false;
+    }
+    return true;
+  };
 
-    // Aquí iría la lógica de registro
-    console.log('Register attempt:', formData);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Preparar datos para el backend (sin confirmPassword)
+      const registerData = {
+        dni: formData.dni,
+        email: formData.email,
+        name: formData.name,
+        lastname: formData.lastname,
+        password: formData.password,
+        phone: formData.phone,
+        avatarUrl: formData.avatarUrl || 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTHfd3PPulVSp4ZbuBFNkePoUR_fLJQe474Ag&s',
+        roleName: formData.roleName
+      };
+
+      const response = await authAPI.register(registerData);
+      
+      // Mostrar mensaje de éxito
+      setSuccess('¡Cuenta creada exitosamente! Redirigiendo al login...');
+      console.log('Registro exitoso:', response);
+      
+      // Redirigir al login después de 2 segundos
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error en registro:', error);
+      
+      // Manejar diferentes tipos de errores
+      if (error.response?.status === 400) {
+        setError(error.response.data.message || 'Email ya registrado o datos inválidos');
+      } else if (error.code === 'ECONNREFUSED') {
+        setError('No se puede conectar al servidor. Verifica que el backend esté corriendo.');
+      } else {
+        setError(error.response?.data?.message || 'Error al crear la cuenta. Inténtalo de nuevo.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -291,13 +355,45 @@ function RegisterPage() {
               </label>
             </div>
 
+            {/* Mensaje de error */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded text-xs">
+                <div className="flex items-center">
+                  <span className="mr-2">⚠️</span>
+                  {error}
+                </div>
+              </div>
+            )}
+
+            {/* Mensaje de éxito */}
+            {success && (
+              <div className="bg-green-50 border border-green-200 text-green-600 px-3 py-2 rounded text-xs">
+                <div className="flex items-center">
+                  <span className="mr-2">✅</span>
+                  {success}
+                </div>
+              </div>
+            )}
+
             {/* Botón de registro compacto */}
             <button
               type="submit"
-              className="w-full py-2 sm:py-2.5 px-3 sm:px-4 text-white font-bold rounded shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-xs sm:text-sm"
-              style={{ backgroundColor: '#CF5C36' }}
+              disabled={isLoading}
+              className={`w-full py-2 sm:py-2.5 px-3 sm:px-4 text-white font-bold rounded shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-xs sm:text-sm ${
+                isLoading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'hover:bg-orange-700'
+              }`}
+              style={{ backgroundColor: isLoading ? '#9CA3AF' : '#CF5C36' }}
             >
-              Crear cuenta
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creando cuenta...
+                </div>
+              ) : (
+                'Crear cuenta'
+              )}
             </button>
 
             {/* Enlaces del footer compacto */}
