@@ -73,9 +73,9 @@ function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
     setError('');
 
@@ -93,19 +93,19 @@ function RegisterPage() {
       };
 
       const response = await authAPI.register(registerData);
-      
+
       // Mostrar mensaje de éxito
       setSuccess('¡Cuenta creada exitosamente! Redirigiendo al login...');
       console.log('Registro exitoso:', response);
-      
+
       // Redirigir al login después de 2 segundos
       setTimeout(() => {
         navigate('/login');
       }, 2000);
-      
+
     } catch (error) {
       console.error('Error en registro:', error);
-      
+
       // Manejar diferentes tipos de errores
       if (error.response?.status === 400) {
         setError(error.response.data.message || 'Email ya registrado o datos inválidos');
@@ -139,11 +139,13 @@ function RegisterPage() {
           {/* Header con logo compacto */}
           <div className="text-center mb-2 sm:mb-3">
             <div className="relative inline-block mb-1 sm:mb-2">
-              <img
-                src={logo}
-                alt="Shop&Buy logo"
-                className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 object-contain mx-auto animate-glow"
-              />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full bg-white shadow-lg p-1 sm:p-1.5 lg:p-2 mx-auto">
+                <img
+                  src={logo}
+                  alt="Shop&Buy logo"
+                  className="w-full h-full object-contain rounded-full animate-glow"
+                />
+              </div>
               <div className="absolute inset-0 rounded-full border-2 border-dashed opacity-30 animate-spin" style={{ borderColor: '#CF5C36', animationDuration: '10s' }}></div>
             </div>
             <h1 className="text-base sm:text-lg lg:text-xl font-black mb-1" style={{ color: '#CF5C36' }}>
@@ -380,8 +382,8 @@ function RegisterPage() {
               type="submit"
               disabled={isLoading}
               className={`w-full py-2 sm:py-2.5 px-3 sm:px-4 text-white font-bold rounded shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-xs sm:text-sm ${
-                isLoading 
-                  ? 'bg-gray-400 cursor-not-allowed' 
+                isLoading
+                  ? 'bg-gray-400 cursor-not-allowed'
                   : 'hover:bg-orange-700'
               }`}
               style={{ backgroundColor: isLoading ? '#9CA3AF' : '#CF5C36' }}
