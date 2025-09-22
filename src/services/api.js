@@ -1,4 +1,5 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 // URL base del backend
 const API_BASE_URL = 'http://localhost:8080';
@@ -12,10 +13,47 @@ const api = axios.create({
   timeout: 10000, // 10 segundos de timeout
 });
 
+// Funciones utilitarias para manejo seguro de cookies
+const cookieUtils = {
+  setAuthToken: (token) => {
+    Cookies.set('authToken', token, { 
+      expires: 7, // 7 días
+      secure: window.location.protocol === 'https:', // Solo HTTPS en producción
+      sameSite: 'strict', // Protección CSRF
+      httpOnly: false // Necesario false para JS client-side
+    });
+  },
+  
+  getAuthToken: () => {
+    return Cookies.get('authToken');
+  },
+  
+  removeAuthToken: () => {
+    Cookies.remove('authToken');
+  },
+  
+  setUserData: (userData) => {
+    Cookies.set('userData', JSON.stringify(userData), {
+      expires: 7,
+      secure: window.location.protocol === 'https:',
+      sameSite: 'strict'
+    });
+  },
+  
+  getUserData: () => {
+    const userData = Cookies.get('userData');
+    return userData ? JSON.parse(userData) : null;
+  },
+  
+  removeUserData: () => {
+    Cookies.remove('userData');
+  }
+};
+
 // Interceptor para agregar token de autenticación automáticamente
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = cookieUtils.getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -34,8 +72,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expirado o inválido
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
+      cookieUtils.removeAuthToken();
+      cookieUtils.removeUserData();
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -58,8 +96,26 @@ export const authAPI = {
   },
 
   logout: () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
+    cookieUtils.removeAuthToken();
+    cookieUtils.removeUserData();
+  },
+
+  // Función auxiliar para guardar token en cookie después del login
+  saveAuthData: (token, userData) => {
+    cookieUtils.setAuthToken(token);
+    if (userData) {
+      cookieUtils.setUserData(userData);
+    }
+  },
+
+  // Función auxiliar para obtener datos del usuario desde cookie
+  getUserData: () => {
+    return cookieUtils.getUserData();
+  },
+
+  // Función auxiliar para verificar si el usuario está logueado
+  isAuthenticated: () => {
+    return !!cookieUtils.getAuthToken();
   }
 };
 
