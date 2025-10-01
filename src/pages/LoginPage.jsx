@@ -36,29 +36,47 @@ function LoginPage() {
         return;
       }
 
-      // Decodificar el token para obtener información del usuario
+      // Primero guardar el token temporalmente para poder hacer peticiones autenticadas
+      authAPI.saveAuthData(response.token, { email: formData.email });
+
+      // Obtener datos completos del usuario usando el endpoint whoami
       try {
+        const { userAPI } = await import('../services/api');
+        const fullUserData = await userAPI.whoAmI();
+        
+        // Combinar datos del token con datos completos del usuario
         const tokenPayload = JSON.parse(atob(response.token.split('.')[1]));
-        const userData = {
-          id: tokenPayload.id,
-          email: tokenPayload.email,
-          roles: tokenPayload.roles || [],
-          // Datos adicionales que pueden venir en el token o generar por defecto
-          name: tokenPayload.name || formData.email.split('@')[0],
-          lastname: tokenPayload.lastname || '',
-          avatarUrl: tokenPayload.avatarUrl || null
+        
+        // Extraer roles del array Roles
+        const userRoles = fullUserData.Roles ? 
+          fullUserData.Roles.map(role => role.roleName) : 
+          (tokenPayload.roles || ['Usuario']);
+        
+        const completeUserData = {
+          id: fullUserData.id || tokenPayload.id,
+          dni: fullUserData.dni,
+          email: fullUserData.email || tokenPayload.email,
+          name: fullUserData.name,
+          lastname: fullUserData.lastname,
+          phone: fullUserData.phone,
+          avatarUrl: fullUserData.avatarUrl,
+          rating: fullUserData.rating,
+          roles: userRoles
         };
 
-        // Guardar usando cookies (authAPI.saveAuthData ya aplica expiración y sliding refresh)
-        authAPI.saveAuthData(response.token, userData);
-      } catch (decodeError) {
-        console.error('Error decodificando token:', decodeError);
-        // Fallback con datos mínimos
-        const userData = { 
-          email: formData.email,
-          roles: ['Usuario']
+        // Guardar datos completos
+        authAPI.saveAuthData(response.token, completeUserData);
+        
+      } catch (userDataError) {
+        console.error('Error obteniendo datos del usuario:', userDataError);
+        // Si falla, mantener datos mínimos del token
+        const tokenPayload = JSON.parse(atob(response.token.split('.')[1]));
+        const fallbackUserData = {
+          id: tokenPayload.id,
+          email: tokenPayload.email,
+          roles: tokenPayload.roles || ['Usuario']
         };
-        authAPI.saveAuthData(response.token, userData);
+        authAPI.saveAuthData(response.token, fallbackUserData);
       }
 
       console.log('Login exitoso (token en cookie).');

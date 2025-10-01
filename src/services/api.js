@@ -142,6 +142,11 @@ export const userAPI = {
     return response.data;
   },
 
+  whoAmI: async () => {
+    const response = await api.get('/users/whoami');
+    return response.data;
+  },
+
   updateProfile: async (userData) => {
     const response = await api.put('/users/profile', userData);
     return response.data;
