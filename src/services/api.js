@@ -10,31 +10,33 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 segundos de timeout
+  timeout: 30000, // 30 segundos de timeout (aumentado para manejar imágenes)
 });
 
 // Funciones utilitarias para manejo seguro de cookies
+// Duración de sesión en milisegundos (30 minutos)
+const SESSION_DURATION_MS = 30 * 60 * 1000;
+
 const cookieUtils = {
+  // Genera una fecha de expiración a 30 minutos desde 'ahora'
+  _expiryDate: () => new Date(Date.now() + SESSION_DURATION_MS),
+
   setAuthToken: (token) => {
     Cookies.set('authToken', token, { 
-      expires: 7, // 7 días
-      secure: window.location.protocol === 'https:', // Solo HTTPS en producción
-      sameSite: 'strict', // Protección CSRF
-      httpOnly: false // Necesario false para JS client-side
+      expires: cookieUtils._expiryDate(), // Expira en 30 minutos
+      secure: window.location.protocol === 'https:',
+      sameSite: 'strict',
+      httpOnly: false
     });
   },
   
-  getAuthToken: () => {
-    return Cookies.get('authToken');
-  },
+  getAuthToken: () => Cookies.get('authToken'),
   
-  removeAuthToken: () => {
-    Cookies.remove('authToken');
-  },
+  removeAuthToken: () => Cookies.remove('authToken'),
   
   setUserData: (userData) => {
     Cookies.set('userData', JSON.stringify(userData), {
-      expires: 7,
+      expires: cookieUtils._expiryDate(), // Alinear expiración con el token
       secure: window.location.protocol === 'https:',
       sameSite: 'strict'
     });
@@ -45,8 +47,18 @@ const cookieUtils = {
     return userData ? JSON.parse(userData) : null;
   },
   
-  removeUserData: () => {
-    Cookies.remove('userData');
+  removeUserData: () => Cookies.remove('userData'),
+
+  // Refresca la expiración (sliding session)
+  refreshSession: () => {
+    const token = Cookies.get('authToken');
+    if (token) {
+      cookieUtils.setAuthToken(token);
+    }
+    const userData = Cookies.get('userData');
+    if (userData) {
+      cookieUtils.setUserData(JSON.parse(userData));
+    }
   }
 };
 
@@ -56,12 +68,12 @@ api.interceptors.request.use(
     const token = cookieUtils.getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      // Renovar expiración en cada request (sliding expiration)
+      cookieUtils.refreshSession();
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Interceptor para manejar respuestas y errores
@@ -90,8 +102,12 @@ export const authAPI = {
     return response.data;
   },
 
-  register: async (userData) => {
-    const response = await api.post('/users/register', userData);
+  register: async (formData) => {
+    const response = await api.post('/users/register', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
     return response.data;
   },
 

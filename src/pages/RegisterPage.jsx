@@ -13,7 +13,7 @@ function RegisterPage() {
     confirmPassword: '',
     phone: '',
     avatarUrl: null,
-    roleName: 'User' // Rol por defecto
+    roleName: 'Usuario' // Rol por defecto (cambiado de 'User' a 'Usuario')
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -37,17 +37,39 @@ function RegisterPage() {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setFormData(prev => ({
-        ...prev,
-        avatarUrl: file
-      }));
-
-      // Crear preview de la imagen
+      // Limpiar mensajes de error
+      if (error) setError('');
+      if (success) setSuccess('');
+      
+      // Verificar tamaño del archivo (máximo 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setError('La imagen es demasiado grande. Por favor, selecciona una imagen menor a 2MB.');
+        return;
+      }
+      
+      // Crear preview de la imagen para mostrar al usuario
       const reader = new FileReader();
       reader.onload = (e) => {
-        setAvatarPreview(e.target.result);
+        const previewUrl = e.target.result;
+        setAvatarPreview(previewUrl);
       };
       reader.readAsDataURL(file);
+      
+      // Guardar el archivo original para enviar al backend
+      setFormData(prev => ({
+        ...prev,
+        avatarUrl: file // Guardamos el File original
+      }));
+      
+      console.log('Archivo seleccionado:', file.name, 'Tamaño:', (file.size / 1024).toFixed(2) + ' KB');
+      
+    } else {
+      // Si no hay archivo, limpiar el preview
+      setAvatarPreview(null);
+      setFormData(prev => ({
+        ...prev,
+        avatarUrl: null
+      }));
     }
   };
 
@@ -64,8 +86,19 @@ function RegisterPage() {
       setError('Email no válido');
       return false;
     }
-    if (!formData.dni || !formData.name || !formData.lastname || !formData.phone) {
+    // Validar todos los campos requeridos por el backend
+    if (!formData.dni || !formData.name || !formData.lastname || !formData.phone || !formData.email) {
       setError('Todos los campos son requeridos');
+      return false;
+    }
+    // Validar que el DNI tenga un formato válido (solo números)
+    if (!/^\d+$/.test(formData.dni)) {
+      setError('La cédula debe contener solo números');
+      return false;
+    }
+    // Validar que el teléfono tenga un formato válido
+    if (!/^\d+$/.test(formData.phone)) {
+      setError('El teléfono debe contener solo números');
       return false;
     }
     return true;
@@ -80,19 +113,31 @@ function RegisterPage() {
     setError('');
 
     try {
-      // Preparar datos para el backend (sin confirmPassword)
-      const registerData = {
-        dni: formData.dni,
-        email: formData.email,
-        name: formData.name,
-        lastname: formData.lastname,
-        password: formData.password,
-        phone: formData.phone,
-        avatarUrl: formData.avatarUrl || 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTHfd3PPulVSp4ZbuBFNkePoUR_fLJQe474Ag&s',
-        roleName: formData.roleName
-      };
-
-      const response = await authAPI.register(registerData);
+      // Crear FormData para envio multipart/form-data
+      const registerFormData = new FormData();
+      
+      registerFormData.append('dni', formData.dni.toString());
+      registerFormData.append('email', formData.email);
+      registerFormData.append('name', formData.name);
+      registerFormData.append('lastname', formData.lastname);
+      registerFormData.append('password', formData.password);
+      registerFormData.append('phone', formData.phone.toString());
+      
+      // roleId numérico: Usuario = 2, Administrador = 1
+      const roleId = formData.roleName === 'Administrador' ? 1 : 2;
+      registerFormData.append('roleId', roleId.toString());
+      
+      // Si hay archivo de imagen, agregarlo
+      if (formData.avatarUrl && formData.avatarUrl instanceof File) {
+        registerFormData.append('avatar', formData.avatarUrl);
+      }
+      
+      console.log('Enviando FormData con campos:');
+      for (let [key, value] of registerFormData.entries()) {
+        console.log(`${key}:`, value instanceof File ? `File(${value.name})` : value);
+      }
+      
+      const response = await authAPI.register(registerFormData);
       
       // Mostrar mensaje de éxito
       setSuccess('¡Cuenta creada exitosamente! Redirigiendo al login...');
@@ -105,14 +150,24 @@ function RegisterPage() {
       
     } catch (error) {
       console.error('Error en registro:', error);
+      console.error('Error response:', error.response?.data); // Para debug
+      console.error('Error code:', error.code); // Para debug
+      console.error('Error message:', error.message); // Para debug
       
       // Manejar diferentes tipos de errores
-      if (error.response?.status === 400) {
-        setError(error.response.data.message || 'Email ya registrado o datos inválidos');
+      if (error.code === 'ECONNABORTED') {
+        setError('La operación tardó demasiado tiempo. El servidor puede estar sobrecargado o la imagen es muy grande.');
+      } else if (error.response?.status === 400) {
+        const errorMsg = error.response.data?.message || error.response.data?.error || 'Email ya registrado o datos inválidos';
+        setError(errorMsg);
+      } else if (error.response?.status === 500) {
+        const errorMsg = error.response.data?.message || error.response.data?.error || 'Error interno del servidor';
+        setError(errorMsg);
       } else if (error.code === 'ECONNREFUSED') {
         setError('No se puede conectar al servidor. Verifica que el backend esté corriendo.');
       } else {
-        setError(error.response?.data?.message || 'Error al crear la cuenta. Inténtalo de nuevo.');
+        const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Error al crear la cuenta. Inténtalo de nuevo.';
+        setError(errorMsg);
       }
     } finally {
       setIsLoading(false);

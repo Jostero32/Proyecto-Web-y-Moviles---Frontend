@@ -31,17 +31,39 @@ function LoginPage() {
     try {
       const response = await authAPI.login(formData.email, formData.password);
       
-      // Guardar token y datos del usuario en localStorage
-      if (response.token) {
-        localStorage.setItem('authToken', response.token);
-        localStorage.setItem('userData', JSON.stringify(response.user));
-        
-        // Mostrar mensaje de éxito
-        console.log('Login exitoso:'/*, response*/);
-        
-        // Redirigir al dashboard o página principal
-        navigate('/dashboard'); // Cambia esta ruta según tu aplicación
+      if (!response || !response.token) {
+        setError('La respuesta del servidor no contiene token.');
+        return;
       }
+
+      // Decodificar el token para obtener información del usuario
+      try {
+        const tokenPayload = JSON.parse(atob(response.token.split('.')[1]));
+        const userData = {
+          id: tokenPayload.id,
+          email: tokenPayload.email,
+          roles: tokenPayload.roles || [],
+          // Datos adicionales que pueden venir en el token o generar por defecto
+          name: tokenPayload.name || formData.email.split('@')[0],
+          lastname: tokenPayload.lastname || '',
+          avatarUrl: tokenPayload.avatarUrl || null
+        };
+
+        // Guardar usando cookies (authAPI.saveAuthData ya aplica expiración y sliding refresh)
+        authAPI.saveAuthData(response.token, userData);
+      } catch (decodeError) {
+        console.error('Error decodificando token:', decodeError);
+        // Fallback con datos mínimos
+        const userData = { 
+          email: formData.email,
+          roles: ['Usuario']
+        };
+        authAPI.saveAuthData(response.token, userData);
+      }
+
+      console.log('Login exitoso (token en cookie).');
+
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error en login:', error);
       
@@ -50,7 +72,7 @@ function LoginPage() {
         setError('Credenciales incorrectas. Verifica tu email y contraseña.');
       } else if (error.response?.status === 404) {
         setError('Usuario no encontrado.');
-      } else if (error.code === 'ECONNREFUSED') {
+      } else if (error.code === 'ECONNREFUSED' || error.message === 'Network Error') {
         setError('No se puede conectar al servidor. Verifica que el backend esté corriendo.');
       } else {
         setError(error.response?.data?.message || 'Error al iniciar sesión. Inténtalo de nuevo.');
