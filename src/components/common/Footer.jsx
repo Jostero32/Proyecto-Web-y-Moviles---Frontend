@@ -16,7 +16,7 @@ function Footer() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link
-                to="/"
+                to="/vender"
                 className="px-8 py-4 bg-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1"
                 style={{ color: '#CF5C36' }}
               >
@@ -69,12 +69,12 @@ function Footer() {
             <div>
               <h4 className="font-bold text-white mb-4">Explorar</h4>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Últimos anuncios</Link></li>
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Tecnología</Link></li>
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Hogar y jardín</Link></li>
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Moda</Link></li>
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Deportes</Link></li>
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Motor</Link></li>
+                <li><Link to="/productos" className="text-gray-300 hover:text-white transition-colors">Últimos anuncios</Link></li>
+                <li><Link to="/categorias" className="text-gray-300 hover:text-white transition-colors">Tecnología</Link></li>
+                <li><Link to="/categorias" className="text-gray-300 hover:text-white transition-colors">Hogar y jardín</Link></li>
+                <li><Link to="/categorias" className="text-gray-300 hover:text-white transition-colors">Moda</Link></li>
+                <li><Link to="/categorias" className="text-gray-300 hover:text-white transition-colors">Deportes</Link></li>
+                <li><Link to="/categorias" className="text-gray-300 hover:text-white transition-colors">Motor</Link></li>
                 <li><Link to="/login" className="text-gray-300 hover:text-white transition-colors">Acceder</Link></li>
               </ul>
             </div>
@@ -84,8 +84,8 @@ function Footer() {
               <h4 className="font-bold text-white mb-4">Ayuda</h4>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Centro de ayuda</Link></li>
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Cómo vender</Link></li>
-                <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Cómo comprar</Link></li>
+                <li><Link to="/vender" className="text-gray-300 hover:text-white transition-colors">Cómo vender</Link></li>
+                <li><Link to="/productos" className="text-gray-300 hover:text-white transition-colors">Cómo comprar</Link></li>
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Seguridad</Link></li>
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Contacto</Link></li>
               </ul>
