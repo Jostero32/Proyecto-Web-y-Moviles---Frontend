@@ -75,6 +75,7 @@ function Footer() {
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Moda</Link></li>
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Deportes</Link></li>
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Motor</Link></li>
+                <li><Link to="/login" className="text-gray-300 hover:text-white transition-colors">Acceder</Link></li>
               </ul>
             </div>
 
