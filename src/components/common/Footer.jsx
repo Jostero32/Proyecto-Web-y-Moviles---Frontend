@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 function Footer() {
   return (
-    <footer className="mt-20">
+    <footer>
       {/* Sección de llamada a la acción */}
       <div style={{ backgroundColor: '#EFC88B' }} className="py-16">
         <div className="sb-container text-center">
