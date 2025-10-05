@@ -1,37 +1,41 @@
 import { Link } from 'react-router-dom';
+import { authAPI } from '../../services/api';
 
 function Footer() {
+  const isLoggedIn = authAPI.isAuthenticated();
   return (
     <footer>
-      {/* Sección de llamada a la acción */}
-      <div style={{ backgroundColor: '#EFC88B' }} className="py-16">
-        <div className="sb-container text-center">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">
-              ¿Tienes algo que vender?
-            </h2>
-            <p className="text-lg text-gray-700 mb-8 max-w-2xl mx-auto">
-              Únete a miles de personas que ya están ganando dinero vendiendo cosas que ya no usan.
-              Es gratis, fácil y seguro.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                to="/vender"
-                className="px-8 py-4 bg-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1"
-                style={{ color: '#CF5C36' }}
-              >
-                🚀 Publicar mi primer anuncio
-              </Link>
-              <Link
-                to="/"
-                className="px-8 py-4 border-2 border-gray-800 text-gray-800 font-semibold rounded-xl hover:bg-gray-800 hover:text-white transition-colors"
-              >
-                Ver cómo funciona
-              </Link>
+      {/* Sección de llamada a la acción (oculta si logueado) */}
+      {!isLoggedIn && (
+        <div style={{ backgroundColor: '#EFC88B' }} className="py-16">
+          <div className="sb-container text-center">
+            <div className="max-w-3xl mx-auto">
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">
+                ¿Tienes algo que vender?
+              </h2>
+              <p className="text-lg text-gray-700 mb-8 max-w-2xl mx-auto">
+                Únete a miles de personas que ya están ganando dinero vendiendo cosas que ya no usan.
+                Es gratis, fácil y seguro.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <Link
+                  to="/vender"
+                  className="px-8 py-4 bg-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1"
+                  style={{ color: '#CF5C36' }}
+                >
+                  🚀 Publicar mi primer anuncio
+                </Link>
+                <Link
+                  to="/"
+                  className="px-8 py-4 border-2 border-gray-800 text-gray-800 font-semibold rounded-xl hover:bg-gray-800 hover:text-white transition-colors"
+                >
+                  Ver cómo funciona
+                </Link>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Footer principal */}
       <div style={{ backgroundColor: '#000000' }} className="text-white">
