@@ -159,7 +159,9 @@ function ProductoDetallePage() {
 
                 {/* Botones de Acción */}
                 <div className="space-y-3 mb-6">
-                  <button className="w-full py-4 text-white font-bold rounded-xl transition-all hover:opacity-90 shadow-lg flex items-center justify-center gap-2"
+                  <button
+                    onClick={() => navigate(`/chat/${product.seller.name}`)}
+                    className="w-full py-4 text-white font-bold rounded-xl transition-all hover:opacity-90 shadow-lg flex items-center justify-center gap-2"
                     style={{ backgroundColor: '#CF5C36' }}>
                     <FiMessageCircle className="text-xl" />
                     Contactar vendedor
