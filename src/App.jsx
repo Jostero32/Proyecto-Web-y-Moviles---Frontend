@@ -9,6 +9,7 @@ import {
 // Componentes
 import Header from './components/common/Header';
 import Footer from './components/common/Footer';
+import ScrollToTop from './components/common/ScrollToTop';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -20,6 +21,7 @@ import ProductoDetallePage from './pages/ProductoDetallePage';
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Main />
     </Router>
   );

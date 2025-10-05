@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight
 } from 'react-icons/fi';
@@ -7,11 +7,20 @@ import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
 
 function ProductosPage() {
+  const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [priceRange, setPriceRange] = useState('Todos');
   const [location, setLocation] = useState('Todos');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Cargar el término de búsqueda desde los parámetros de URL
+  useEffect(() => {
+    const searchFromUrl = searchParams.get('search');
+    if (searchFromUrl) {
+      setSearchTerm(searchFromUrl);
+    }
+  }, [searchParams]);
 
   const categories = ['Todos', 'Tecnología', 'Casa y Hogar', 'Ropa y Moda', 'Deportes', 'Carros y Motos', 'Gaming'];
   const priceRanges = ['Todos', '0-100', '100-500', '500-1000', '1000+'];
@@ -240,4 +249,3 @@ function ProductosPage() {
 }
 
 export default ProductosPage;
-
