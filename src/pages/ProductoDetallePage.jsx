@@ -58,19 +58,6 @@ function ProductoDetallePage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#EEE5E9' }}>
-      {/* Breadcrumb */}
-      <div className="bg-white py-4 border-b">
-        <div className="sb-container">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Link to="/" className="hover:text-orange-500">Inicio</Link>
-            <FiChevronRight />
-            <Link to="/productos" className="hover:text-orange-500">Productos</Link>
-            <FiChevronRight />
-            <span className="text-gray-900 font-semibold">{product.category}</span>
-          </div>
-        </div>
-      </div>
-
       {/* Contenido Principal */}
       <section className="py-8">
         <div className="sb-container">
@@ -133,7 +120,7 @@ function ProductoDetallePage() {
 
             {/* Columna Derecha - Info y Acciones */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-3xl p-8 shadow-lg sticky top-8">
+              <div className="bg-white rounded-3xl p-8 shadow-lg">
                 {/* Badges */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {product.isNew && (
@@ -176,10 +163,6 @@ function ProductoDetallePage() {
                     style={{ backgroundColor: '#CF5C36' }}>
                     <FiMessageCircle className="text-xl" />
                     Contactar vendedor
-                  </button>
-                  <button className="w-full py-4 bg-green-600 text-white font-bold rounded-xl transition-all hover:bg-green-700 shadow-lg flex items-center justify-center gap-2">
-                    <FiPhone className="text-xl" />
-                    WhatsApp
                   </button>
                   <div className="flex gap-3">
                     <button
@@ -227,9 +210,11 @@ function ProductoDetallePage() {
                 </div>
               </div>
 
-              {/* Consejos de Seguridad */}
-              <div className="bg-yellow-50 rounded-2xl p-6 mt-6">
-                <h3 className="font-bold text-gray-900 mb-3">🔒 Consejos de seguridad</h3>
+              {/* Consejos de Seguridad - Tarjeta separada */}
+              <div className="bg-yellow-50 rounded-3xl p-6 shadow-lg mt-6">
+                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  🔒 Consejos de seguridad
+                </h3>
                 <ul className="text-sm text-gray-700 space-y-2">
                   <li>• Verifica el producto antes de pagar</li>
                   <li>• Reúnete en lugares públicos</li>
@@ -272,4 +257,3 @@ function ProductoDetallePage() {
 }
 
 export default ProductoDetallePage;
-
