@@ -55,11 +55,6 @@ function ChatPage() {
     ]);
   }, []);
 
-  // Scroll automático al final de los mensajes
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (message.trim()) {
@@ -69,18 +64,31 @@ function ChatPage() {
         sender: 'me',
         timestamp: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
       };
-      setMessages([...messages, newMessage]);
+      setMessages(prev => {
+        const updated = [...prev, newMessage];
+        // Scroll después de actualizar
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        });
+        return updated;
+      });
       setMessage('');
 
       // Simulación de respuesta automática del vendedor
       setTimeout(() => {
         const vendorResponse = {
-          id: messages.length + 2,
+          id: Date.now(),
           text: '¡Perfecto! ¿Tienes alguna otra pregunta?',
           sender: 'vendor',
           timestamp: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
         };
-        setMessages(prev => [...prev, vendorResponse]);
+        setMessages(prev => {
+          const updated = [...prev, vendorResponse];
+          requestAnimationFrame(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          });
+          return updated;
+        });
       }, 2000);
     }
   };
