@@ -17,6 +17,7 @@ import ProductosPage from './pages/ProductosPage';
 import VenderPage from './pages/VenderPage';
 import CategoriasPage from './pages/CategoriasPage';
 import ProductoDetallePage from './pages/ProductoDetallePage';
+import ChatPage from './pages/ChatPage';
 
 function App() {
   return (
@@ -32,6 +33,8 @@ function Main() {
 
   // Páginas donde no se muestra Header y Footer
   const excludedPages = ['/login', '/register'];
+
+  // Ya no excluir chat del header y footer
   const shouldExcludeNavigation = excludedPages.includes(location.pathname);
 
   return (
@@ -49,6 +52,7 @@ function Main() {
           <Route path="/producto/:id" element={<ProductoDetallePage />} />
           <Route path="/vender" element={<VenderPage />} />
           <Route path="/categorias" element={<CategoriasPage />} />
+          <Route path="/chat/:vendorId" element={<ChatPage />} />
         </Routes>
       </main>
 
