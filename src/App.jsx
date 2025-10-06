@@ -18,6 +18,10 @@ import VenderPage from './pages/VenderPage';
 import CategoriasPage from './pages/CategoriasPage';
 import ProductoDetallePage from './pages/ProductoDetallePage';
 import ChatPage from './pages/ChatPage';
+import MiPerfilPage from './pages/MiPerfilPage';
+import MisProductosPage from './pages/MisProductosPage';
+import NotificacionesPage from './pages/NotificacionesPage';
+import FavoritosPage from './pages/FavoritosPage';
 
 function App() {
   return (
@@ -52,7 +56,12 @@ function Main() {
           <Route path="/producto/:id" element={<ProductoDetallePage />} />
           <Route path="/vender" element={<VenderPage />} />
           <Route path="/categorias" element={<CategoriasPage />} />
+          <Route path="/chat" element={<ChatPage />} />
           <Route path="/chat/:vendorId" element={<ChatPage />} />
+          <Route path="/mi-perfil" element={<MiPerfilPage />} />
+          <Route path="/mis-productos" element={<MisProductosPage />} />
+          <Route path="/notificaciones" element={<NotificacionesPage />} />
+          <Route path="/favoritos" element={<FavoritosPage />} />
         </Routes>
       </main>
 

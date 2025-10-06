@@ -81,7 +81,7 @@ function LoginPage() {
 
       console.log('Login exitoso (token en cookie).');
 
-      navigate('/dashboard');
+      navigate('/');
     } catch (error) {
       console.error('Error en login:', error);
       
