@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { authAPI } from '../../services/api';
 import logo from '../../assets/Logo de Shop&Buy.png';
-import { FiSearch } from 'react-icons/fi';
+import { FiSearch, FiUser, FiPackage, FiBell, FiHeart, FiMessageSquare, FiLogOut } from 'react-icons/fi';
 
 function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -244,35 +244,68 @@ function Header() {
 
                   {/* Dropdown menu */}
                   {showDropdown && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
-                      <Link
-                        to="/profile"
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        Mi perfil
-                      </Link>
-                      <Link
-                        to="/orders"
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        Mis pedidos
-                      </Link>
-                      <Link
-                        to="/vender"
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        Vender producto
-                      </Link>
-                      <hr className="my-1" />
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        Cerrar sesión
-                      </button>
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50 overflow-hidden">
+                      {/* Header del dropdown */}
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white">
+                        <p className="font-bold text-gray-900">{getUserName(userData)}</p>
+                        <p className="text-xs text-gray-600">{getUserRole(userData)}</p>
+                      </div>
+
+                      {/* Opciones del menú */}
+                      <div className="py-2">
+                        <Link
+                          to="/mi-perfil"
+                          className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 transition-colors group"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          <FiUser className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
+                          <span className="font-medium">Mi Perfil</span>
+                        </Link>
+                        <Link
+                          to="/mis-productos"
+                          className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 transition-colors group"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          <FiPackage className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
+                          <span className="font-medium">Mis Productos</span>
+                        </Link>
+                        <Link
+                          to="/notificaciones"
+                          className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 transition-colors group"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          <FiBell className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
+                          <span className="font-medium">Notificaciones</span>
+                          <span className="ml-auto px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs font-bold">2</span>
+                        </Link>
+                        <Link
+                          to="/favoritos"
+                          className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 transition-colors group"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          <FiHeart className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
+                          <span className="font-medium">Favoritos</span>
+                        </Link>
+                        <Link
+                          to="/chat"
+                          className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 transition-colors group"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          <FiMessageSquare className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
+                          <span className="font-medium">Mis Mensajes</span>
+                        </Link>
+                      </div>
+
+                      {/* Footer del dropdown */}
+                      <div className="border-t border-gray-100 mt-2">
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-3 w-full px-4 py-3 text-red-600 hover:bg-red-50 transition-colors group"
+                        >
+                          <FiLogOut className="w-5 h-5 text-red-400 group-hover:text-red-600" />
+                          <span className="font-medium">Cerrar sesión</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
