@@ -20,7 +20,18 @@ import {
   IoCheckmarkCircle
 } from 'react-icons/io5';
 import { MdVerified, MdSecurity, MdDashboard } from 'react-icons/md';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { productAPI, categoryAPI } from '../services/api';
+
+// Categorías estáticas con iconos (fuera del componente para evitar re-renders)
+const categoryIcons = [
+  { icon: HiDevicePhoneMobile, title: 'Tecnología', color: '#CF5C36' },
+  { icon: HiHomeModern, title: 'Casa y Hogar', color: '#EFC88B' },
+  { icon: HiShoppingBag, title: 'Ropa y Moda', color: '#7C7C7C' },
+  { icon: HiTrophy, title: 'Deportes', color: '#CF5C36' },
+  { icon: IoCarSport, title: 'Carros y Motos', color: '#EFC88B' },
+  { icon: IoGameController, title: 'Gaming', color: '#7C7C7C' },
+];
 
 function CategoryCard({ icon: Icon, title, count, color }) {
   return (
@@ -63,15 +74,23 @@ function FeatureCard({ icon: Icon, title, description, color }) {
   );
 }
 
-function ProductCard({ image, title, price, location, isNew, verified }) {
+function ProductCard({ image, title, price, location, isNew, verified, isImageUrl = false }) {
   const [isFavorite, setIsFavorite] = useState(false);
 
   return (
     <Link to="/producto/1" className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
       <div className="relative">
-        <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl group-hover:scale-105 transition-transform duration-500">
-          {image}
-        </div>
+        {isImageUrl ? (
+          <img 
+            src={image} 
+            alt={title}
+            className="aspect-square w-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl group-hover:scale-105 transition-transform duration-500">
+            {image}
+          </div>
+        )}
 
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-2">
@@ -133,25 +152,52 @@ function StatCard({ icon: Icon, value, label, color }) {
 }
 
 function HomePage() {
-  const categories = [
-    { icon: HiDevicePhoneMobile, title: 'Tecnología', count: '12.5k', color: '#CF5C36' },
-    { icon: HiHomeModern, title: 'Casa y Hogar', count: '8.2k', color: '#EFC88B' },
-    { icon: HiShoppingBag, title: 'Ropa y Moda', count: '15.1k', color: '#7C7C7C' },
-    { icon: HiTrophy, title: 'Deportes', count: '6.8k', color: '#CF5C36' },
-    { icon: IoCarSport, title: 'Carros y Motos', count: '4.3k', color: '#EFC88B' },
-    { icon: IoGameController, title: 'Gaming', count: '7.9k', color: '#7C7C7C' },
-  ];
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const featuredProducts = [
-    { image: '📱', title: 'iPhone 14 Pro Max 128GB en excelente estado', price: 890, location: 'Quito Centro', isNew: true, verified: true },
-    { image: '🛋️', title: 'Mueble de sala esquinero moderno', price: 250, location: 'Guayaquil Norte', isNew: false, verified: true },
-    { image: '🚲', title: 'Bicicleta de montaña Trek X-Caliber', price: 420, location: 'Cuenca', isNew: false, verified: false },
-    { image: '⌚', title: 'Apple Watch Series 9 GPS 45mm', price: 320, location: 'Ambato', isNew: true, verified: true },
-    { image: '📷', title: 'Cámara Canon EOS R6 con lente 24-105mm', price: 1200, location: 'Manta', isNew: false, verified: true },
-    { image: '🎧', title: 'AirPods Pro 2da Generación sellados', price: 180, location: 'Loja', isNew: true, verified: true },
-    { image: '💻', title: 'MacBook Air M2 256GB Space Gray', price: 950, location: 'Machala', isNew: false, verified: true },
-    { image: '🎮', title: 'PlayStation 5 Digital + 2 juegos', price: 480, location: 'Riobamba', isNew: false, verified: false },
-  ];
+  // Cargar productos y categorías del backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [productsData, categoriesData] = await Promise.all([
+          productAPI.getAll(),
+          categoryAPI.getAll()
+        ]);
+        
+        // Tomar solo los primeros 8 productos para destacados
+        setProducts(productsData.slice(0, 8));
+        
+        // Mapear categorías del backend con iconos estáticos
+        const mappedCategories = categoriesData.slice(0, 6).map((cat, index) => ({
+          ...categoryIcons[index % categoryIcons.length],
+          title: cat.name,
+          count: '0', // Por ahora 0, se puede calcular después
+          id: cat.id
+        }));
+        setCategories(mappedCategories);
+        
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+        // Mantener categorías estáticas en caso de error
+        setCategories(categoryIcons.map(cat => ({ ...cat, count: '0' })));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Función para obtener la primera imagen de un producto
+  const getProductImage = (product) => {
+    if (product.ProductPhotos && product.ProductPhotos.length > 0) {
+      const sortedPhotos = product.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
+      return sortedPhotos[0].url;
+    }
+    return null;
+  };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#EEE5E9' }}>
@@ -384,9 +430,35 @@ function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product, index) => (
-              <ProductCard key={index} {...product} />
-            ))}
+            {loading ? (
+              // Skeleton loading para productos
+              Array(8).fill(0).map((_, index) => (
+                <div key={index} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
+                  <div className="aspect-square bg-gray-200"></div>
+                  <div className="p-5">
+                    <div className="h-6 bg-gray-200 rounded mb-3"></div>
+                    <div className="h-8 bg-gray-200 rounded mb-3 w-1/2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              products.map((product) => {
+                const imageUrl = getProductImage(product);
+                return (
+                  <ProductCard 
+                    key={product.id} 
+                    image={imageUrl ? imageUrl : '📦'}
+                    title={product.title}
+                    price={product.price}
+                    location="Por definir" // El backend no tiene ubicación por ahora
+                    isNew={product.status === 'activo'}
+                    verified={true} // Por defecto true por ahora
+                    isImageUrl={!!imageUrl}
+                  />
+                );
+              })
+            )}
           </div>
 
           <div className="text-center mt-12">

@@ -171,4 +171,17 @@ export const productAPI = {
   }
 };
 
+// Funciones para categorías
+export const categoryAPI = {
+  getAll: async () => {
+    const response = await api.get('/categories');
+    return response.data;
+  },
+
+  getMain: async () => {
+    const response = await api.get('/categories/main');
+    return response.data;
+  }
+};
+
 export default api;

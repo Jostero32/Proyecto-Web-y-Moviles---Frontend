@@ -5,6 +5,7 @@ import {
 } from 'react-icons/fi';
 import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
+import { productAPI, categoryAPI } from '../services/api';
 
 function ProductosPage() {
   const [searchParams] = useSearchParams();
@@ -13,6 +14,9 @@ function ProductosPage() {
   const [priceRange, setPriceRange] = useState('Todos');
   const [location, setLocation] = useState('Todos');
   const [showFilters, setShowFilters] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState(['Todos']);
+  const [loading, setLoading] = useState(true);
 
   // Cargar el término de búsqueda desde los parámetros de URL
   useEffect(() => {
@@ -22,29 +26,53 @@ function ProductosPage() {
     }
   }, [searchParams]);
 
-  const categories = ['Todos', 'Tecnología', 'Casa y Hogar', 'Ropa y Moda', 'Deportes', 'Carros y Motos', 'Gaming'];
+  // Cargar productos y categorías del backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [productsData, categoriesData] = await Promise.all([
+          productAPI.getAll(),
+          categoryAPI.getAll()
+        ]);
+        
+        setProducts(productsData);
+        
+        // Agregar "Todos" al inicio de las categorías
+        const categoriesList = ['Todos', ...categoriesData.map(cat => cat.name)];
+        setCategories(categoriesList);
+        
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const priceRanges = ['Todos', '0-100', '100-500', '500-1000', '1000+'];
   const locations = ['Todos', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja'];
 
-  const allProducts = [
-    { id: 1, image: '📱', title: 'iPhone 14 Pro Max 128GB', price: 890, location: 'Quito Centro', category: 'Tecnología', isNew: true, verified: true },
-    { id: 2, image: '🛋️', title: 'Mueble de sala esquinero moderno', price: 250, location: 'Guayaquil Norte', category: 'Casa y Hogar', isNew: false, verified: true },
-    { id: 3, image: '🚲', title: 'Bicicleta de montaña Trek X-Caliber', price: 420, location: 'Cuenca', category: 'Deportes', isNew: false, verified: false },
-    { id: 4, image: '⌚', title: 'Apple Watch Series 9 GPS', price: 320, location: 'Ambato', category: 'Tecnología', isNew: true, verified: true },
-    { id: 5, image: '📷', title: 'Cámara Canon EOS R6', price: 1200, location: 'Manta', category: 'Tecnología', isNew: false, verified: true },
-    { id: 6, image: '🎧', title: 'AirPods Pro 2da Gen', price: 180, location: 'Loja', category: 'Tecnología', isNew: true, verified: true },
-    { id: 7, image: '💻', title: 'MacBook Air M2', price: 950, location: 'Quito', category: 'Tecnología', isNew: false, verified: true },
-    { id: 8, image: '🎮', title: 'PlayStation 5 Digital', price: 480, location: 'Guayaquil', category: 'Gaming', isNew: false, verified: false },
-    { id: 9, image: '👕', title: 'Chaqueta North Face', price: 95, location: 'Cuenca', category: 'Ropa y Moda', isNew: true, verified: true },
-    { id: 10, image: '🚗', title: 'Toyota Corolla 2020', price: 15000, location: 'Quito', category: 'Carros y Motos', isNew: false, verified: true },
-    { id: 11, image: '🏠', title: 'Refrigeradora LG', price: 650, location: 'Guayaquil', category: 'Casa y Hogar', isNew: true, verified: true },
-    { id: 12, image: '⚽', title: 'Balón de fútbol Nike', price: 45, location: 'Ambato', category: 'Deportes', isNew: true, verified: false },
-  ];
+  // Función para obtener la primera imagen de un producto
+  const getProductImage = (product) => {
+    if (product.ProductPhotos && product.ProductPhotos.length > 0) {
+      // Ordenar por position y tomar la primera
+      const sortedPhotos = product.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
+      return sortedPhotos[0].url;
+    }
+    return null;
+  };
 
-  const filteredProducts = allProducts.filter(product => {
+  const filteredProducts = products.filter(product => {
     const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
-    const matchesLocation = location === 'Todos' || product.location.includes(location);
+    
+    // Filtro de categoría - por ahora mantenemos simple hasta tener la relación completa
+    const matchesCategory = selectedCategory === 'Todos'; // TODO: implementar filtro por categoryId
+    
+    // El backend no tiene location por ahora, así que lo mantenemos como true
+    const matchesLocation = location === 'Todos' || true;
 
     let matchesPrice = true;
     if (priceRange !== 'Todos') {
@@ -68,7 +96,7 @@ function ProductosPage() {
             Productos disponibles
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Encuentra justo lo que buscas entre {allProducts.length} productos
+            Encuentra justo lo que buscas entre {products.length} productos
           </p>
 
           {/* Barra de búsqueda */}
@@ -171,60 +199,71 @@ function ProductosPage() {
                 </select>
               </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredProducts.map((product) => (
-                  <Link
-                    key={product.id}
-                    to={`/producto/${product.id}`}
-                    className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
-                  >
-                    <div className="relative">
-                      <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl group-hover:scale-105 transition-transform duration-500">
-                        {product.image}
-                      </div>
-
-                      <div className="absolute top-3 left-3 flex flex-col gap-2">
-                        {product.isNew && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full">
-                            <HiSparkles className="text-sm" />
-                            NUEVO
-                          </span>
-                        )}
-                        {product.verified && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-full">
-                            <MdVerified className="text-sm" />
-                            Verificado
-                          </span>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={(e) => e.preventDefault()}
-                        className="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg"
+              {loading ? (
+                <div className="col-span-full flex justify-center py-20">
+                  <div className="text-xl text-gray-500">Cargando productos...</div>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredProducts.map((product) => {
+                    const imageUrl = getProductImage(product);
+                    return (
+                      <Link
+                        key={product.id}
+                        to={`/producto/${product.id}`}
+                        className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
                       >
-                        <FiHeart className="text-xl text-gray-700" />
-                      </button>
-                    </div>
+                        <div className="relative">
+                          {imageUrl ? (
+                            <img 
+                              src={imageUrl} 
+                              alt={product.title}
+                              className="aspect-square w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl group-hover:scale-105 transition-transform duration-500">
+                              📦
+                            </div>
+                          )}
 
-                    <div className="p-5">
-                      <h3 className="font-semibold text-gray-900 mb-3 group-hover:text-orange-600 transition-colors line-clamp-2 min-h-[3rem]">
-                        {product.title}
-                      </h3>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-3xl font-black" style={{ color: '#CF5C36' }}>
-                          ${product.price}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <FiMapPin className="flex-shrink-0" />
-                        <span className="truncate">{product.location}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                          <div className="absolute top-3 left-3 flex flex-col gap-2">
+                            {product.status === 'activo' && (
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full">
+                                <HiSparkles className="text-sm" />
+                                ACTIVO
+                              </span>
+                            )}
+                          </div>
 
-              {filteredProducts.length === 0 && (
+                          <button
+                            onClick={(e) => e.preventDefault()}
+                            className="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg"
+                          >
+                            <FiHeart className="text-xl text-gray-700" />
+                          </button>
+                        </div>
+
+                        <div className="p-5">
+                          <h3 className="font-semibold text-gray-900 mb-3 group-hover:text-orange-600 transition-colors line-clamp-2 min-h-[3rem]">
+                            {product.title}
+                          </h3>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-3xl font-black" style={{ color: '#CF5C36' }}>
+                              ${product.price}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <FiMapPin className="flex-shrink-0" />
+                            <span className="truncate">Por definir</span>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!loading && filteredProducts.length === 0 && (
                 <div className="text-center py-20">
                   <p className="text-2xl text-gray-400 mb-4">No se encontraron productos</p>
                   <button
