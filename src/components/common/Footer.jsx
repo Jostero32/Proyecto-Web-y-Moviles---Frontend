@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { authAPI } from '../../services/api';
+import AuthLink from './AuthLink';
 
 function Footer() {
   const isLoggedIn = authAPI.isAuthenticated();
@@ -18,13 +19,13 @@ function Footer() {
                 Es gratis, fácil y seguro.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Link
+                <AuthLink
                   to="/vender"
                   className="px-8 py-4 bg-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1"
                   style={{ color: '#CF5C36' }}
                 >
                   🚀 Publicar mi primer anuncio
-                </Link>
+                </AuthLink>
                 <Link
                   to="/"
                   className="px-8 py-4 border-2 border-gray-800 text-gray-800 font-semibold rounded-xl hover:bg-gray-800 hover:text-white transition-colors"
@@ -88,7 +89,7 @@ function Footer() {
               <h4 className="font-bold text-white mb-4">Ayuda</h4>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Centro de ayuda</Link></li>
-                <li><Link to="/vender" className="text-gray-300 hover:text-white transition-colors">Cómo vender</Link></li>
+                <li><AuthLink to="/vender" className="text-gray-300 hover:text-white transition-colors">Cómo vender</AuthLink></li>
                 <li><Link to="/productos" className="text-gray-300 hover:text-white transition-colors">Cómo comprar</Link></li>
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Seguridad</Link></li>
                 <li><Link to="/" className="text-gray-300 hover:text-white transition-colors">Contacto</Link></li>

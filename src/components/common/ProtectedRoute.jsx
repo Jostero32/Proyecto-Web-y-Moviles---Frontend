@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { authAPI } from '../services/api';
+import { authAPI } from '../../services/api';
 
 function ProtectedRoute({ children }) {
   const location = useLocation();

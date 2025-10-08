@@ -21,7 +21,8 @@ import {
 } from 'react-icons/io5';
 import { MdVerified, MdSecurity, MdDashboard } from 'react-icons/md';
 import { useState, useEffect } from 'react';
-import { productAPI, categoryAPI, authAPI } from '../services/api';
+import { productAPI, categoryAPI } from '../services/api';
+import AuthLink from '../components/common/AuthLink';
 
 // Categorías estáticas con iconos (fuera del componente para evitar re-renders)
 const categoryIcons = [
@@ -148,24 +149,6 @@ function StatCard({ icon: Icon, value, label, color }) {
       <div className="text-3xl font-black text-gray-900">{value}</div>
       <div className="text-sm text-gray-600 font-medium">{label}</div>
     </div>
-  );
-}
-
-// Componente para enlaces que requieren autenticación
-function AuthLink({ to, children, className, onClick }) {
-  const handleClick = (e) => {
-    if (!authAPI.isAuthenticated()) {
-      e.preventDefault();
-      // Redirigir al login guardando la página actual
-      window.location.href = `/login?redirect=${encodeURIComponent(to)}`;
-    }
-    if (onClick) onClick(e);
-  };
-
-  return (
-    <Link to={to} className={className} onClick={handleClick}>
-      {children}
-    </Link>
   );
 }
 

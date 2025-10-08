@@ -12,6 +12,7 @@ import {
   IoCarSport
 } from 'react-icons/io5';
 import { FiChevronRight, FiTrendingUp } from 'react-icons/fi';
+import AuthLink from '../components/common/AuthLink';
 
 function CategoriasPage() {
   const categories = [
@@ -177,13 +178,13 @@ function CategoriasPage() {
             <p className="text-xl mb-8 opacity-90">
               Publica tu producto de forma gratuita y llegá a miles de compradores
             </p>
-            <Link
+            <AuthLink
               to="/vender"
               className="inline-flex items-center gap-3 px-8 py-4 bg-white text-gray-900 font-bold rounded-2xl hover:shadow-2xl transition-all transform hover:-translate-y-1"
             >
               Publicar gratis
               <FiChevronRight className="text-xl" />
-            </Link>
+            </AuthLink>
           </div>
         </div>
       </section>
