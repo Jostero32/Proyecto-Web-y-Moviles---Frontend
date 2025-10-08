@@ -432,8 +432,15 @@ function MiPerfilPage() {
 
         {/* Modal de confirmación */}
         {showConfirmModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 m-4 max-w-md w-full">
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div 
+              className="absolute inset-0"
+              style={{ 
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)'
+              }}
+            ></div>
+            <div className="relative bg-white rounded-xl p-6 m-4 max-w-md w-full shadow-2xl border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirmar cambios</h3>
               <p className="text-gray-600 mb-6">
                 ¿Estás seguro de que quieres actualizar tu perfil? 
