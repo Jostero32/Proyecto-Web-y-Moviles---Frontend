@@ -32,6 +32,21 @@ function Header() {
   }, []);
 
   useEffect(() => {
+    // Escuchar cambios en los datos del usuario
+    const handleUserDataUpdate = (event) => {
+      if (authAPI.isAuthenticated()) {
+        setUserData(event.detail);
+      }
+    };
+
+    window.addEventListener('userDataUpdated', handleUserDataUpdate);
+    
+    return () => {
+      window.removeEventListener('userDataUpdated', handleUserDataUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
     // Cerrar dropdown al hacer clic fuera
     const handleClickOutside = (event) => {
       if (showDropdown && !event.target.closest('.user-dropdown')) {

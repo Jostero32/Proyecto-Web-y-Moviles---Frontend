@@ -40,6 +40,9 @@ const cookieUtils = {
       secure: window.location.protocol === 'https:',
       sameSite: 'strict'
     });
+    
+    // Disparar evento personalizado para notificar cambios en datos de usuario
+    window.dispatchEvent(new CustomEvent('userDataUpdated', { detail: userData }));
   },
   
   getUserData: () => {
@@ -156,9 +159,62 @@ export const userAPI = {
     return response.data;
   },
 
-  updateProfile: async (userData) => {
-    const response = await api.put('/users/profile', userData);
+  updateProfile: async (userId, userData) => {
+    const response = await api.put(`/users/${userId}`, userData);
+    
+    // Actualizar datos del usuario en las cookies después de una actualización exitosa
+    if (response.data && response.data.user) {
+      const currentUserData = cookieUtils.getUserData() || {};
+      const updatedUserData = {
+        ...currentUserData,
+        ...response.data.user
+      };
+      cookieUtils.setUserData(updatedUserData);
+    }
+    
     return response.data;
+  },
+
+  updateAvatar: async (userId, avatarFile) => {
+    const formData = new FormData();
+    formData.append('avatar', avatarFile);
+    
+    const response = await api.put(`/users/${userId}/avatar`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    // Actualizar avatar URL en las cookies después de una actualización exitosa
+    if (response.data && response.data.avatarUrl) {
+      const currentUserData = cookieUtils.getUserData() || {};
+      const updatedUserData = {
+        ...currentUserData,
+        avatarUrl: response.data.avatarUrl
+      };
+      cookieUtils.setUserData(updatedUserData);
+    }
+    
+    return response.data;
+  },
+
+  changePassword: async (userId, passwordData) => {
+    const response = await api.put(`/users/${userId}/password`, passwordData);
+    return response.data;
+  },
+
+  // Función para refrescar datos del usuario actual
+  refreshUserData: async () => {
+    try {
+      const currentUser = await userAPI.getCurrentUser();
+      if (currentUser) {
+        cookieUtils.setUserData(currentUser);
+        return currentUser;
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+    return null;
   }
 };
 
