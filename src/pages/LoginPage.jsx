@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { authAPI } from '../services/api';
 import logo from '../assets/Logo de Shop&Buy.png';
@@ -12,6 +12,7 @@ function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -81,7 +82,10 @@ function LoginPage() {
 
       console.log('Login exitoso (token en cookie).');
 
-      navigate('/');
+      // Redirigir a la página solicitada, desde state o query param, o home por defecto
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get('redirect') || location.state?.from?.pathname || '/';
+      navigate(redirectUrl);
     } catch (error) {
       console.error('Error en login:', error);
       

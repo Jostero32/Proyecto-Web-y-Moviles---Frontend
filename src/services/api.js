@@ -83,10 +83,19 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Token expirado o inválido
+      // Token expirado o inválido - limpiar datos de sesión
       cookieUtils.removeAuthToken();
       cookieUtils.removeUserData();
-      window.location.href = '/login';
+      
+      // Solo redirigir al login si estamos en páginas que requieren autenticación
+      const currentPath = window.location.pathname;
+      const protectedPaths = ['/vender', '/mi-perfil', '/mis-productos', '/notificaciones', '/favoritos', '/chat'];
+      
+      if (protectedPaths.some(path => currentPath.startsWith(path))) {
+        window.location.href = '/login';
+      }
+      
+      // Para otras páginas, simplemente propagamos el error sin redirigir
     }
     return Promise.reject(error);
   }

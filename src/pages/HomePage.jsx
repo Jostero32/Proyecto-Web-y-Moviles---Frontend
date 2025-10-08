@@ -21,7 +21,7 @@ import {
 } from 'react-icons/io5';
 import { MdVerified, MdSecurity, MdDashboard } from 'react-icons/md';
 import { useState, useEffect } from 'react';
-import { productAPI, categoryAPI } from '../services/api';
+import { productAPI, categoryAPI, authAPI } from '../services/api';
 
 // Categorías estáticas con iconos (fuera del componente para evitar re-renders)
 const categoryIcons = [
@@ -151,6 +151,24 @@ function StatCard({ icon: Icon, value, label, color }) {
   );
 }
 
+// Componente para enlaces que requieren autenticación
+function AuthLink({ to, children, className, onClick }) {
+  const handleClick = (e) => {
+    if (!authAPI.isAuthenticated()) {
+      e.preventDefault();
+      // Redirigir al login guardando la página actual
+      window.location.href = `/login?redirect=${encodeURIComponent(to)}`;
+    }
+    if (onClick) onClick(e);
+  };
+
+  return (
+    <Link to={to} className={className} onClick={handleClick}>
+      {children}
+    </Link>
+  );
+}
+
 function HomePage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -241,13 +259,13 @@ function HomePage() {
                   Dale, a explorar
                   <FiChevronRight className="text-xl group-hover:translate-x-1 transition-transform" />
                 </Link>
-                <Link
+                <AuthLink
                   to="/vender"
                   className="group inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-gray-900 font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all border-2 border-gray-200 hover:border-gray-300 transform hover:-translate-y-1"
                 >
                   <IoPricetag className="text-2xl group-hover:rotate-12 transition-transform" />
                   Vender algo
-                </Link>
+                </AuthLink>
               </div>
             </div>
 

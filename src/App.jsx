@@ -10,6 +10,7 @@ import {
 import Header from './components/common/Header';
 import Footer from './components/common/Footer';
 import ScrollToTop from './components/common/ScrollToTop';
+import ProtectedRoute from './components/common/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -49,19 +50,50 @@ function Main() {
       {/* Rutas */}
       <main>
         <Routes>
+          {/* Rutas públicas - accesibles sin autenticación */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/productos" element={<ProductosPage />} />
           <Route path="/producto/:id" element={<ProductoDetallePage />} />
-          <Route path="/vender" element={<VenderPage />} />
           <Route path="/categorias" element={<CategoriasPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/chat/:vendorId" element={<ChatPage />} />
-          <Route path="/mi-perfil" element={<MiPerfilPage />} />
-          <Route path="/mis-productos" element={<MisProductosPage />} />
-          <Route path="/notificaciones" element={<NotificacionesPage />} />
-          <Route path="/favoritos" element={<FavoritosPage />} />
+          
+          {/* Rutas protegidas - requieren autenticación */}
+          <Route path="/vender" element={
+            <ProtectedRoute>
+              <VenderPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/chat" element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/chat/:vendorId" element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/mi-perfil" element={
+            <ProtectedRoute>
+              <MiPerfilPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/mis-productos" element={
+            <ProtectedRoute>
+              <MisProductosPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/notificaciones" element={
+            <ProtectedRoute>
+              <NotificacionesPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/favoritos" element={
+            <ProtectedRoute>
+              <FavoritosPage />
+            </ProtectedRoute>
+          } />
         </Routes>
       </main>
 
