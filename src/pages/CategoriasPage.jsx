@@ -1,70 +1,8 @@
 import { Link } from 'react-router-dom';
-import {
-  HiDevicePhoneMobile,
-  HiHomeModern,
-  HiShoppingBag,
-  HiTrophy,
-  HiTruck,
-  HiSparkles
-} from 'react-icons/hi2';
-import {
-  IoGameController,
-  IoCarSport
-} from 'react-icons/io5';
 import { FiChevronRight, FiTrendingUp } from 'react-icons/fi';
+import { categoriesData } from '../data/categories';
 
 function CategoriasPage() {
-  const categories = [
-    {
-      icon: HiDevicePhoneMobile,
-      title: 'Tecnología',
-      count: '12.5k',
-      color: '#CF5C36',
-      description: 'Smartphones, laptops, tablets y más',
-      subcategories: ['Celulares', 'Computadoras', 'Accesorios', 'Audio', 'Cámaras']
-    },
-    {
-      icon: HiHomeModern,
-      title: 'Casa y Hogar',
-      count: '8.2k',
-      color: '#EFC88B',
-      description: 'Muebles, decoración y electrodomésticos',
-      subcategories: ['Muebles', 'Decoración', 'Electrodomésticos', 'Jardín', 'Cocina']
-    },
-    {
-      icon: HiShoppingBag,
-      title: 'Ropa y Moda',
-      count: '15.1k',
-      color: '#7C7C7C',
-      description: 'Ropa, zapatos y accesorios',
-      subcategories: ['Ropa Hombre', 'Ropa Mujer', 'Zapatos', 'Accesorios', 'Joyería']
-    },
-    {
-      icon: HiTrophy,
-      title: 'Deportes',
-      count: '6.8k',
-      color: '#CF5C36',
-      description: 'Equipos deportivos y fitness',
-      subcategories: ['Gimnasio', 'Ciclismo', 'Fútbol', 'Camping', 'Natación']
-    },
-    {
-      icon: IoCarSport,
-      title: 'Carros y Motos',
-      count: '4.3k',
-      color: '#EFC88B',
-      description: 'Vehículos y repuestos',
-      subcategories: ['Autos', 'Motos', 'Repuestos', 'Accesorios', 'Llantas']
-    },
-    {
-      icon: IoGameController,
-      title: 'Gaming',
-      count: '7.9k',
-      color: '#7C7C7C',
-      description: 'Consolas, videojuegos y accesorios',
-      subcategories: ['Consolas', 'Videojuegos', 'PC Gaming', 'Accesorios', 'Mandos']
-    },
-  ];
-
   const trendingCategories = [
     { name: 'Celulares iPhone', count: 2345 },
     { name: 'Laptops Gaming', count: 1890 },
@@ -95,7 +33,7 @@ function CategoriasPage() {
       <section className="py-16">
         <div className="sb-container">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {categories.map((category, index) => (
+            {categoriesData.map((category, index) => (
               <div
                 key={index}
                 className="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
@@ -121,17 +59,18 @@ function CategoriasPage() {
 
                 <div className="flex flex-wrap gap-2 mb-6">
                   {category.subcategories.map((sub, idx) => (
-                    <span
+                    <Link
                       key={idx}
+                      to={`/productos?category=${category.value}&subcategory=${sub.value}`}
                       className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
                     >
-                      {sub}
-                    </span>
+                      {sub.label}
+                    </Link>
                   ))}
                 </div>
 
                 <Link
-                  to="/productos"
+                  to={`/productos?category=${category.value}`}
                   className="inline-flex items-center gap-2 text-sm font-bold group-hover:gap-3 transition-all"
                   style={{ color: category.color }}
                 >
@@ -192,4 +131,3 @@ function CategoriasPage() {
 }
 
 export default CategoriasPage;
-

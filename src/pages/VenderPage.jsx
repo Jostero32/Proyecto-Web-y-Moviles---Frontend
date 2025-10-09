@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUpload, FiDollarSign, FiMapPin, FiTag } from 'react-icons/fi';
-import { HiDevicePhoneMobile, HiHomeModern, HiShoppingBag, HiTrophy } from 'react-icons/hi2';
-import { IoGameController, IoCarSport } from 'react-icons/io5';
 import LocationPicker from '../components/common/LocationPicker';
+import { categoriesData, getSubcategories } from '../data/categories';
 
 function VenderPage() {
   const navigate = useNavigate();
@@ -13,22 +12,20 @@ function VenderPage() {
     description: '',
     price: '',
     category: '',
+    subcategory: '',
     location: '',
-    locationCoords: null, // { lat, lng, address }
+    locationCoords: null,
     condition: 'usado',
     images: []
   });
 
-  const categories = [
-    { value: 'tecnologia', label: 'Tecnología', icon: HiDevicePhoneMobile, color: '#CF5C36' },
-    { value: 'hogar', label: 'Casa y Hogar', icon: HiHomeModern, color: '#EFC88B' },
-    { value: 'ropa', label: 'Ropa y Moda', icon: HiShoppingBag, color: '#7C7C7C' },
-    { value: 'deportes', label: 'Deportes', icon: HiTrophy, color: '#CF5C36' },
-    { value: 'vehiculos', label: 'Carros y Motos', icon: IoCarSport, color: '#EFC88B' },
-    { value: 'gaming', label: 'Gaming', icon: IoGameController, color: '#7C7C7C' },
-  ];
-
-  const locations = ['Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja', 'Machala', 'Riobamba'];
+  const handleCategoryChange = (categoryValue) => {
+    setFormData({
+      ...formData,
+      category: categoryValue,
+      subcategory: '' // Reset subcategory cuando cambia la categoría
+    });
+  };
 
   const handleLocationSelect = (locationData) => {
     setFormData({
@@ -40,7 +37,6 @@ function VenderPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Aquí iría la lógica para enviar al backend
     console.log('Producto a publicar:', formData);
     alert('¡Producto publicado exitosamente! 🎉');
     navigate('/productos');
@@ -50,6 +46,9 @@ function VenderPage() {
     const files = Array.from(e.target.files);
     setFormData({ ...formData, images: [...formData.images, ...files] });
   };
+
+  const selectedCategoryData = categoriesData.find(cat => cat.value === formData.category);
+  const subcategories = selectedCategoryData ? selectedCategoryData.subcategories : [];
 
   return (
     <div className="min-h-screen py-12" style={{ backgroundColor: '#EEE5E9' }}>
@@ -72,11 +71,11 @@ function VenderPage() {
               Categoría *
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {categories.map((cat) => (
+              {categoriesData.map((cat) => (
                 <button
                   key={cat.value}
                   type="button"
-                  onClick={() => setFormData({ ...formData, category: cat.value })}
+                  onClick={() => handleCategoryChange(cat.value)}
                   className={`p-4 rounded-xl border-2 transition-all ${
                     formData.category === cat.value
                       ? 'border-orange-500 bg-orange-50'
@@ -89,6 +88,43 @@ function VenderPage() {
               ))}
             </div>
           </div>
+
+          {/* Subcategoría - Diseño mejorado con badges */}
+          {subcategories.length > 0 && (
+            <div className="mb-8">
+              <label className="block text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <FiTag className="text-orange-500" />
+                Subcategoría *
+              </label>
+              <div className="bg-gray-50 rounded-2xl p-6 border-2 border-gray-200">
+                <p className="text-sm text-gray-600 mb-4">
+                  Selecciona la subcategoría que mejor describa tu producto:
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {subcategories.map((sub) => (
+                    <button
+                      key={sub.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, subcategory: sub.value })}
+                      className={`px-5 py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.subcategory === sub.value
+                          ? 'bg-orange-500 text-white shadow-lg transform scale-105'
+                          : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:shadow-md'
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
+                </div>
+                {!formData.subcategory && (
+                  <p className="text-sm text-orange-600 mt-3 flex items-center gap-1">
+                    <FiTag className="text-xs" />
+                    Por favor selecciona una subcategoría
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Título */}
           <div className="mb-6">
