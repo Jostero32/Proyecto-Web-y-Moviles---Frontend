@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight, FiNavigation
+  FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight, FiNavigation, FiTag, FiChevronDown
 } from 'react-icons/fi';
 import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
 import LocationPicker from '../components/common/LocationPicker';
+import { categoriesData, getSubcategories } from '../data/categories';
 
 function ProductosPage() {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [selectedSubcategory, setSelectedSubcategory] = useState('Todos');
   const [priceRange, setPriceRange] = useState('Todos');
   const [location, setLocation] = useState('Todos');
   const [showFilters, setShowFilters] = useState(false);
@@ -21,17 +23,36 @@ function ProductosPage() {
   // Cargar el término de búsqueda desde los parámetros de URL
   useEffect(() => {
     const searchFromUrl = searchParams.get('search');
+    const categoryFromUrl = searchParams.get('category');
+    const subcategoryFromUrl = searchParams.get('subcategory');
+
     if (searchFromUrl) {
       setSearchTerm(searchFromUrl);
     }
+
+    if (categoryFromUrl) {
+      // Encontrar la categoría por su value
+      const categoryData = categoriesData.find(cat => cat.value === categoryFromUrl);
+      if (categoryData) {
+        setSelectedCategory(categoryData.label);
+      }
+    }
+
+    if (subcategoryFromUrl) {
+      setSelectedSubcategory(subcategoryFromUrl);
+    }
   }, [searchParams]);
 
-  const categories = ['Todos', 'Tecnología', 'Casa y Hogar', 'Ropa y Moda', 'Deportes', 'Carros y Motos', 'Gaming'];
+  const categories = ['Todos', ...categoriesData.map(cat => cat.label)];
   const priceRanges = ['Todos', '0-100', '100-500', '500-1000', '1000+'];
   const locations = ['Todos', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja'];
 
+  // Obtener subcategorías de la categoría seleccionada
+  const selectedCategoryData = categoriesData.find(cat => cat.label === selectedCategory);
+  const subcategories = selectedCategoryData ? selectedCategoryData.subcategories : [];
+
   const allProducts = [
-    { id: 1, image: '📱', title: 'iPhone 14 Pro Max 128GB', price: 890, location: 'Quito Centro', category: 'Tecnología', isNew: true, verified: true, coords: { lat: -0.1807, lng: -78.4678 } },
+    { id: 1, image: '📱', title: 'iPhone 14 Pro Max 128GB', price: 890, location: 'Quito Centro', category: 'Tecnología', subcategory: 'celulares', isNew: true, verified: true, coords: { lat: -0.1807, lng: -78.4678 } },
     { id: 2, image: '🛋️', title: 'Mueble de sala esquinero moderno', price: 250, location: 'Guayaquil Norte', category: 'Casa y Hogar', isNew: false, verified: true, coords: { lat: -2.1709, lng: -79.9224 } },
     { id: 3, image: '🚲', title: 'Bicicleta de montaña Trek X-Caliber', price: 420, location: 'Cuenca', category: 'Deportes', isNew: false, verified: false, coords: { lat: -2.9001, lng: -79.0059 } },
     { id: 4, image: '⌚', title: 'Apple Watch Series 9 GPS', price: 320, location: 'Ambato', category: 'Tecnología', isNew: true, verified: true, coords: { lat: -1.2490, lng: -78.6167 } },
@@ -63,9 +84,15 @@ function ProductosPage() {
     setLocation('Cercanos'); // Cambia el filtro a "Cercanos"
   };
 
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    setSelectedSubcategory('Todos'); // Reset subcategory cuando cambia la categoría
+  };
+
   const filteredProducts = allProducts.filter(product => {
     const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
+    const matchesSubcategory = selectedSubcategory === 'Todos' || product.subcategory === selectedSubcategory;
 
     let matchesLocation = true;
     if (location === 'Cercanos' && userLocation) {
@@ -90,7 +117,7 @@ function ProductosPage() {
       }
     }
 
-    return matchesSearch && matchesCategory && matchesLocation && matchesPrice;
+    return matchesSearch && matchesCategory && matchesSubcategory && matchesLocation && matchesPrice;
   });
 
   // Ordenar productos por distancia si hay ubicación del usuario
@@ -185,25 +212,79 @@ function ProductosPage() {
                 )}
               </div>
 
+              {/* Categorías y Subcategorías en una sola card */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="font-bold text-lg mb-4">Categorías</h3>
-                <div className="space-y-2">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                        selectedCategory === cat
-                          ? 'bg-orange-500 text-white'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                <div className="space-y-1">
+                  {/* Opción "Todos" */}
+                  <button
+                    onClick={() => handleCategoryChange('Todos')}
+                    className={`w-full text-left px-4 py-2.5 rounded-lg transition-colors font-medium ${
+                      selectedCategory === 'Todos'
+                        ? 'bg-orange-500 text-white'
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    Todos
+                  </button>
+
+                  {/* Categorías con subcategorías */}
+                  {categoriesData.map((cat) => {
+                    const isSelected = selectedCategory === cat.label;
+                    const categorySubcategories = cat.subcategories;
+
+                    return (
+                      <div key={cat.value}>
+                        {/* Categoría principal */}
+                        <button
+                          onClick={() => handleCategoryChange(cat.label)}
+                          className={`w-full text-left px-4 py-2.5 rounded-lg transition-colors font-medium flex items-center justify-between ${
+                            isSelected
+                              ? 'bg-orange-500 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          <span>{cat.label}</span>
+                          {isSelected && categorySubcategories.length > 0 && (
+                            <FiChevronDown className="text-sm" />
+                          )}
+                        </button>
+
+                        {/* Subcategorías (solo si la categoría está seleccionada) */}
+                        {isSelected && categorySubcategories.length > 0 && (
+                          <div className="ml-4 mt-1 space-y-1 border-l-2 border-orange-200 pl-3">
+                            <button
+                              onClick={() => setSelectedSubcategory('Todos')}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                selectedSubcategory === 'Todos'
+                                  ? 'bg-orange-100 text-orange-700 font-semibold'
+                                  : 'hover:bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              Todos
+                            </button>
+                            {categorySubcategories.map((sub) => (
+                              <button
+                                key={sub.value}
+                                onClick={() => setSelectedSubcategory(sub.value)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                  selectedSubcategory === sub.value
+                                    ? 'bg-orange-100 text-orange-700 font-semibold'
+                                    : 'hover:bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {sub.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Rango de Precio */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="font-bold text-lg mb-4">Rango de Precio</h3>
                 <div className="space-y-2">
@@ -223,6 +304,7 @@ function ProductosPage() {
                 </div>
               </div>
 
+              {/* Ubicación */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h3 className="font-bold text-lg mb-4">Ubicación</h3>
                 <div className="space-y-2">
