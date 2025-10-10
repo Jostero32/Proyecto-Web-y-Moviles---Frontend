@@ -123,6 +123,16 @@ export const useWebSocketMessages = (conversationId) => {
         payloadSenderId: payload.senderId
       });
       
+      // Marcar al emisor como online (si no es el usuario actual)
+      if (payload.senderId && payload.senderId !== webSocketService.currentUserId) {
+        console.log('👤 Marcando emisor como online por actividad:', payload.senderId);
+        // Importar dinámicamente el hook de usuarios online
+        import('../pages/ChatPage').then(() => {
+          // El usuario que envía mensajes está claramente online
+          // Esto se manejará a nivel de componente
+        }).catch(console.error);
+      }
+      
       // Solo procesar mensajes de la conversación actual (comparar como strings y números)
       const payloadConvId = payload.conversationId?.toString();
       const currentConvId = conversationIdRef.current?.toString();
@@ -172,8 +182,21 @@ export const useWebSocketMessages = (conversationId) => {
             ...msg,
             id: messageData.id,
             pending: false,
+            status: 'sent', // Confirmado como enviado
             timestamp: formatMessageTimestamp(messageData.sentAt || messageData.createdAt),
             originalData: messageData
+          } : msg
+        )
+      );
+    };
+
+    const handleMessageReadUpdate = (data) => {
+      console.log('👁️ Actualizando estado de lectura:', data);
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.id === data.messageId ? {
+            ...msg,
+            status: data.read ? 'read' : 'delivered'
           } : msg
         )
       );
@@ -182,6 +205,7 @@ export const useWebSocketMessages = (conversationId) => {
     // Suscribirse a eventos
     webSocketService.on('newMessage', handleNewMessage);
     webSocketService.on('messageSent', handleMessageSent);
+    webSocketService.on('messageReadUpdate', handleMessageReadUpdate);
     webSocketService.on('userTyping', handleUserTyping);
     webSocketService.on('userStoppedTyping', handleUserStoppedTyping);
 
@@ -198,6 +222,7 @@ export const useWebSocketMessages = (conversationId) => {
       // Cleanup
       webSocketService.off('newMessage', handleNewMessage);
       webSocketService.off('messageSent', handleMessageSent);
+      webSocketService.off('messageReadUpdate', handleMessageReadUpdate);
       webSocketService.off('userTyping', handleUserTyping);
       webSocketService.off('userStoppedTyping', handleUserStoppedTyping);
       
@@ -285,20 +310,50 @@ export const useOnlineUsers = () => {
     return webSocketService.requestOnlineUsers();
   }, []);
 
+  // Método para marcar manualmente a un usuario como online (útil para sincronización)
+  const setUserOnline = useCallback((userId, status = 'online') => {
+    console.log('👤 Marcando usuario como online manualmente:', { userId, status });
+    setOnlineUsers(prev => new Set([...prev, userId.toString()]));
+    setUserStatuses(prev => new Map(prev).set(userId.toString(), {
+      status,
+      lastSeen: new Date().toISOString()
+    }));
+  }, []);
+
+  const setUserOffline = useCallback((userId) => {
+    console.log('👤 Marcando usuario como offline manualmente:', { userId });
+    setOnlineUsers(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(userId.toString());
+      return newSet;
+    });
+    setUserStatuses(prev => new Map(prev).set(userId.toString(), {
+      status: 'offline',
+      lastSeen: new Date().toISOString()
+    }));
+  }, []);
+
   useEffect(() => {
     const handleUserOnline = (payload) => {
-      const { userId, status = 'online', timestamp } = payload;
+      // Maneja tanto formato directo como con userId
+      const userId = payload.userId || payload.id || payload;
+      const status = payload.status || 'online';
+      const timestamp = payload.timestamp || new Date().toISOString();
+      
       console.log('🟢 Usuario conectado:', { userId, status });
       
       setOnlineUsers(prev => new Set([...prev, userId.toString()]));
       setUserStatuses(prev => new Map(prev).set(userId.toString(), {
         status,
-        lastSeen: timestamp || new Date().toISOString()
+        lastSeen: timestamp
       }));
     };
 
     const handleUserOffline = (payload) => {
-      const { userId, timestamp } = payload;
+      // Maneja tanto formato directo como con userId
+      const userId = payload.userId || payload.id || payload;
+      const timestamp = payload.timestamp || new Date().toISOString();
+      
       console.log('🔴 Usuario desconectado:', { userId });
       
       setOnlineUsers(prev => {
@@ -309,7 +364,7 @@ export const useOnlineUsers = () => {
       
       setUserStatuses(prev => new Map(prev).set(userId.toString(), {
         status: 'offline',
-        lastSeen: timestamp || new Date().toISOString()
+        lastSeen: timestamp
       }));
     };
 
@@ -350,16 +405,46 @@ export const useOnlineUsers = () => {
       setTimeout(() => {
         console.log('🔍 Solicitando lista inicial de usuarios online...');
         webSocketService.requestOnlineUsers();
+        
+        // También simulemos que el usuario actual está online
+        const currentUser = webSocketService.currentUserId;
+        if (currentUser) {
+          handleUserOnline({ userId: currentUser, status: 'online' });
+        }
       }, 1000); // Esperar 1 segundo después de conectar
     };
 
+    // Manejar datos iniciales del WebSocket
+    const handleInitData = (data) => {
+      console.log('📊 Datos iniciales WebSocket:', data);
+      // Si hay información de usuarios en los datos iniciales, procesarla
+      if (data && data.conversations) {
+        // Extraer IDs de usuarios de las conversaciones y marcarlos como potencialmente online
+        data.conversations.forEach(conv => {
+          // El usuario que envió el último mensaje podría estar online
+          if (conv.lastMessage && conv.lastMessage.sentAt) {
+            const lastMessageTime = new Date(conv.lastMessage.sentAt);
+            const now = new Date();
+            const diffMinutes = Math.floor((now - lastMessageTime) / (1000 * 60));
+            
+            // Si enviaron un mensaje en los últimos 30 minutos, considerarlo online
+            if (diffMinutes < 30) {
+              console.log('👤 Usuario posiblemente online por actividad reciente');
+            }
+          }
+        });
+      }
+    };
+
     webSocketService.on('connected', handleConnected);
+    webSocketService.on('init', handleInitData);
 
     return () => {
       webSocketService.off('userOnline', handleUserOnline);
       webSocketService.off('userOffline', handleUserOffline);
       webSocketService.off('onlineUsers', handleOnlineUsersList);
       webSocketService.off('connected', handleConnected);
+      webSocketService.off('init', handleInitData);
     };
   }, []);
 
@@ -369,7 +454,9 @@ export const useOnlineUsers = () => {
     isUserOnline,
     getUserStatus,
     requestUserStatus,
-    requestOnlineUsers
+    requestOnlineUsers,
+    setUserOnline,
+    setUserOffline
   };
 };
 

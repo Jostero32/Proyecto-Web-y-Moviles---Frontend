@@ -133,6 +133,18 @@ class WebSocketService {
           console.log('✅ Notificación marcada como leída:', message.data);
           this.emit('notificationReadConfirm', message.data);
           break;
+        case 'user:online':
+          console.log('🟢 Usuario conectado:', message.data);
+          this.emit('userOnline', message.data);
+          break;
+        case 'user:offline':
+          console.log('🔴 Usuario desconectado:', message.data);
+          this.emit('userOffline', message.data);
+          break;
+        case 'users:list':
+          console.log('👥 Lista de usuarios conectados:', message.data);
+          this.emit('onlineUsers', message.data);
+          break;
         case 'error':
           console.log('❌ Error del servidor:', message.message);
           this.emit('serverError', message);
@@ -256,13 +268,6 @@ class WebSocketService {
     });
   }
 
-  requestOnlineUsers() {
-    return this.send({
-      type: 'requestOnlineUsers',
-      payload: {}
-    });
-  }
-
   requestUserStatus(userId) {
     return this.send({
       type: 'requestUserStatus',
@@ -291,6 +296,21 @@ class WebSocketService {
       title: title,
       body: body,
       notificationType: notificationType
+    });
+  }
+
+  requestOnlineUsers() {
+    return this.send({
+      type: 'users:request',
+      action: 'getOnlineUsers'
+    });
+  }
+
+  updateUserStatus(status) {
+    return this.send({
+      type: 'user:status',
+      status: status,
+      timestamp: new Date().toISOString()
     });
   }
 
