@@ -23,6 +23,7 @@ function MiPerfilPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [previewImage, setPreviewImage] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,12 +43,23 @@ function MiPerfilPage() {
   }, [navigate]);
 
   const getAvatarUrl = (user) => {
+    // Si hay una imagen en preview, mostrarla
+    if (previewImage) return previewImage;
+    
     if (!user) return null;
+    
+    // Crear cache buster basado en el timestamp del usuario para evitar regeneración constante
+    const cacheBuster = user.updatedAt ? `?v=${new Date(user.updatedAt).getTime()}` : `?v=${Date.now()}`;
+    
     if (user.avatarUrl?.startsWith('data:')) return user.avatarUrl;
-    if (user.avatarUrl?.startsWith('http://localhost:8080')) return user.avatarUrl;
-    if (user.avatarUrl?.startsWith('/')) return `http://localhost:8080${user.avatarUrl}`;
-    if (user.dni) return `http://localhost:8080/uploads/users/${user.dni}/${user.dni}.jpg`;
-    return `http://localhost:8080/uploads/common/user-common.png`;
+    if (user.avatarUrl?.startsWith('http://localhost:8080')) {
+      return user.avatarUrl.includes('?') ? user.avatarUrl : `${user.avatarUrl}${cacheBuster}`;
+    }
+    if (user.avatarUrl?.startsWith('/')) {
+      return `http://localhost:8080${user.avatarUrl}${cacheBuster}`;
+    }
+    if (user.dni) return `http://localhost:8080/uploads/users/${user.dni}/${user.dni}.jpg${cacheBuster}`;
+    return `http://localhost:8080/uploads/common/user-common.png${cacheBuster}`;
   };
 
   const handleInputChange = (e) => {
@@ -102,18 +114,16 @@ function MiPerfilPage() {
       setIsLoading(true);
       setShowConfirmModal(false);
       
-      // Actualizar perfil en el backend
+      // Actualizar perfil en el backend (solo los campos soportados)
       await userAPI.updateProfile(userData.id, {
         name: formData.name,
         lastname: formData.lastname,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address
+        phone: formData.phone
       });
       
       // Si se quiere cambiar contraseña, hacerlo también
       if (showPasswordFields) {
-        await userAPI.changePassword(userData.id, {
+        await userAPI.changePassword({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword
         });
@@ -127,17 +137,22 @@ function MiPerfilPage() {
         setShowPasswordFields(false);
       }
       
-      // Los datos ya se actualizan automáticamente en las cookies desde userAPI.updateProfile
-      // Solo necesitamos actualizar el estado local
-      const updatedUserData = authAPI.getUserData();
-      if (updatedUserData) {
-        setUserData(updatedUserData);
+      // Obtener datos frescos del usuario desde el backend para asegurar sincronización
+      const freshUserData = await userAPI.whoAmI();
+      
+      // Actualizar datos en las cookies y estado local con datos frescos
+      if (freshUserData) {
+        const token = authAPI.getAuthToken();
+        if (token) {
+          authAPI.saveAuthData(token, freshUserData);
+        }
+        setUserData(freshUserData);
         setFormData({
-          name: updatedUserData?.name || '',
-          lastname: updatedUserData?.lastname || '',
-          email: updatedUserData?.email || '',
-          phone: updatedUserData?.phone || '',
-          address: updatedUserData?.address || ''
+          name: freshUserData?.name || '',
+          lastname: freshUserData?.lastname || '',
+          email: freshUserData?.email || '',
+          phone: freshUserData?.phone || '',
+          address: freshUserData?.address || ''
         });
       }
       
@@ -145,7 +160,12 @@ function MiPerfilPage() {
       setIsEditing(false);
     } catch (error) {
       console.error('Error al actualizar perfil:', error);
-      showNotification('error', 'Error al actualizar el perfil. Inténtalo de nuevo.');
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      showNotification('error', `Error al actualizar el perfil: ${error.response?.data?.message || error.message || 'Inténtalo de nuevo'}`);
     } finally {
       setIsLoading(false);
     }
@@ -172,8 +192,6 @@ function MiPerfilPage() {
     const file = e.target.files[0];
     if (file) {
       try {
-        setIsUploadingImage(true);
-        
         // Validar tipo de archivo
         if (!file.type.startsWith('image/')) {
           showNotification('error', 'Por favor selecciona un archivo de imagen válido.');
@@ -185,21 +203,45 @@ function MiPerfilPage() {
           showNotification('error', 'La imagen debe ser menor a 5MB.');
           return;
         }
+
+        // Crear preview de la imagen
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setPreviewImage(event.target.result);
+        };
+        reader.readAsDataURL(file);
+
+        setIsUploadingImage(true);
         
         // Actualizar avatar en el backend
         await userAPI.updateAvatar(userData.id, file);
         
-        // Los datos ya se actualizan automáticamente en las cookies desde userAPI.updateAvatar
-        // Solo necesitamos actualizar el estado local
-        const updatedUserData = authAPI.getUserData();
-        if (updatedUserData) {
-          setUserData(updatedUserData);
+        // Obtener datos frescos del usuario desde el backend para asegurar sincronización
+        const freshUserData = await userAPI.whoAmI();
+        
+        // Actualizar datos en las cookies y estado local con datos frescos
+        if (freshUserData) {
+          const token = authAPI.getAuthToken();
+          if (token) {
+            authAPI.saveAuthData(token, freshUserData);
+          }
+          setUserData(freshUserData);
         }
+
+        // Limpiar preview después de confirmar la actualización
+        setPreviewImage(null);
         
         showNotification('success', 'Avatar actualizado exitosamente');
       } catch (error) {
         console.error('Error al actualizar avatar:', error);
-        showNotification('error', 'Error al actualizar el avatar. Inténtalo de nuevo.');
+        console.error('Avatar error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
+        showNotification('error', `Error al actualizar el avatar: ${error.response?.data?.message || error.message || 'Inténtalo de nuevo'}`);
+        // Limpiar preview si hay error
+        setPreviewImage(null);
       } finally {
         setIsUploadingImage(false);
       }
@@ -293,7 +335,7 @@ function MiPerfilPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    disabled={!isEditing}
+                    disabled={true} // Temporalmente deshabilitado - backend no soporta actualizar email
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
                   />
                 </div>
@@ -322,7 +364,7 @@ function MiPerfilPage() {
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
-                    disabled={!isEditing}
+                    disabled={true} // Temporalmente deshabilitado - backend no soporta actualizar address
                     placeholder="Calle, número, ciudad"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
                   />

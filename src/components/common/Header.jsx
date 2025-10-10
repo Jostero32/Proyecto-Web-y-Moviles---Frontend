@@ -70,6 +70,9 @@ function Header() {
   const getAvatarUrl = (user) => {
     if (!user) return null;
     
+    // Cache buster basado en el timestamp del usuario para evitar regeneración constante
+    const cacheBuster = user.updatedAt ? `?v=${new Date(user.updatedAt).getTime()}` : `?v=${Date.now()}`;
+    
     // Si es una URL de datos base64, usarla directamente
     if (user.avatarUrl?.startsWith('data:')) {
       return user.avatarUrl;
@@ -77,21 +80,21 @@ function Header() {
     
     // Si ya es una URL completa del servidor, usarla
     if (user.avatarUrl?.startsWith('http://localhost:8080')) {
-      return user.avatarUrl;
+      return user.avatarUrl.includes('?') ? user.avatarUrl : `${user.avatarUrl}${cacheBuster}`;
     }
     
     // Si es una ruta del servidor que empieza con /, construir URL completa
     if (user.avatarUrl?.startsWith('/')) {
-      return `http://localhost:8080${user.avatarUrl}`;
+      return `http://localhost:8080${user.avatarUrl}${cacheBuster}`;
     }
     
     // Si tenemos DNI, construir ruta por defecto
     if (user.dni) {
-      return `http://localhost:8080/uploads/users/${user.dni}/${user.dni}.jpg`;
+      return `http://localhost:8080/uploads/users/${user.dni}/${user.dni}.jpg${cacheBuster}`;
     }
     
     // Fallback: imagen por defecto del servidor
-    return `http://localhost:8080/uploads/common/user-common.png`;
+    return `http://localhost:8080/uploads/common/user-common.png${cacheBuster}`;
   };
 
   // Función para obtener rol del usuario

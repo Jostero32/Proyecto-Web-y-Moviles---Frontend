@@ -144,6 +144,11 @@ export const authAPI = {
   // Función auxiliar para verificar si el usuario está logueado
   isAuthenticated: () => {
     return !!cookieUtils.getAuthToken();
+  },
+
+  // Función auxiliar para obtener el token de autenticación
+  getAuthToken: () => {
+    return cookieUtils.getAuthToken();
   }
 };
 
@@ -198,8 +203,11 @@ export const userAPI = {
     return response.data;
   },
 
-  changePassword: async (userId, passwordData) => {
-    const response = await api.put(`/users/${userId}/password`, passwordData);
+  changePassword: async (passwordData) => {
+    const response = await api.put('/users/password', {
+      oldPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword
+    });
     return response.data;
   },
 
