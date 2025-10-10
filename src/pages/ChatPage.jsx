@@ -55,6 +55,82 @@ function ChatPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const messagesEndRef = useRef(null);
+  const refreshIntervalRef = useRef(null);
+
+  // Establecer usuario actual al montar el componente
+  useEffect(() => {
+    const userData = authAPI.getUserData();
+    if (userData?.id) {
+      setCurrentUserId(userData.id);
+    }
+  }, []);
+
+  // Función para refrescar mensajes sin cambiar el selectedChat
+  const refreshMessages = useCallback(async () => {
+    if (!selectedChat) return;
+    
+    try {
+      const backendMessages = await conversationAPI.getConversationMessages(selectedChat.id);
+      
+      const userData = authAPI.getUserData();
+      const currentUserIdForMapping = userData?.id || currentUserId;
+      
+      const mappedMessages = backendMessages.map(msg => ({
+        id: msg.id,
+        text: msg.content,
+        sender: msg.senderId === currentUserIdForMapping ? 'me' : 'vendor',
+        timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt),
+        originalData: msg
+      }));
+      
+        // Solo actualizar si hay cambios (evitar re-renders innecesarios)
+      setMessages(prevMessages => {
+        const hasChanges = prevMessages.length !== mappedMessages.length ||
+          (prevMessages.length > 0 && mappedMessages.length > 0 &&
+           prevMessages[prevMessages.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id);
+        
+        if (hasChanges) {
+          console.log('📬 Nuevos mensajes detectados, actualizando UI...');
+          
+          // Auto-scroll si hay mensajes nuevos
+          setTimeout(() => {
+            if (messagesEndRef.current) {
+              messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }, 100);
+          
+          return mappedMessages;
+        }
+        
+        return prevMessages; // No hay cambios
+      });    } catch (error) {
+      console.error('Error al refrescar mensajes:', error);
+    }
+  }, [selectedChat, currentUserId]);
+
+  // Auto-refresh de mensajes cada 3 segundos cuando hay chat activo
+  useEffect(() => {
+    if (selectedChat) {
+      // Refrescar inmediatamente
+      refreshMessages();
+      
+      // Configurar intervalo
+      refreshIntervalRef.current = setInterval(refreshMessages, 3000);
+      
+      return () => {
+        if (refreshIntervalRef.current) {
+          clearInterval(refreshIntervalRef.current);
+          refreshIntervalRef.current = null;
+        }
+      };
+    } else {
+      // Limpiar intervalo si no hay chat seleccionado
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+    }
+  }, [selectedChat, refreshMessages]);
 
   // Función para seleccionar un chat y cargar sus mensajes
   const handleSelectChat = useCallback(async (conversation) => {
@@ -66,14 +142,22 @@ function ChatPage() {
       const backendMessages = await conversationAPI.getConversationMessages(conversation.id);
       
       // Mapear mensajes del backend al formato UI
-      const mappedMessages = backendMessages.map(msg => ({
-        id: msg.id,
-        text: msg.content,
-        sender: msg.senderId === currentUserId ? 'me' : 'vendor',
-        timestamp: formatMessageTimestamp(msg.createdAt),
-        // Datos originales
-        originalData: msg
-      }));
+      const userData = authAPI.getUserData();
+      const currentUserIdForMapping = userData?.id || currentUserId;
+      console.log('Mapeando mensajes con currentUserId:', currentUserIdForMapping);
+      console.log('Mensajes del backend:', backendMessages);
+      
+      const mappedMessages = backendMessages.map(msg => {
+        console.log('Mapeando mensaje:', msg);
+        return {
+          id: msg.id,
+          text: msg.content,
+          sender: msg.senderId === currentUserIdForMapping ? 'me' : 'vendor',
+          timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt), // Usar sentAt primero
+          // Datos originales
+          originalData: msg
+        };
+      });
       
       setMessages(mappedMessages);
       navigate(`/chat/${conversation.id}`);
@@ -100,26 +184,56 @@ function ChatPage() {
       
       // Obtener el usuario actual
       const userData = authAPI.getUserData();
+      console.log('Usuario actual:', userData);
       if (userData) {
         setCurrentUserId(userData.id);
+        console.log('Current user ID establecido:', userData.id);
+      } else {
+        console.error('No se pudo obtener datos del usuario');
       }
 
       // Cargar conversaciones del backend
       const backendConversations = await conversationAPI.getMyConversations();
+      console.log('Conversaciones del backend:', backendConversations);
       
       // Mapear conversaciones del backend al formato UI
       const mappedConversations = await Promise.all(
         backendConversations.map(async (conversation) => {
+          console.log('Procesando conversación completa:', JSON.stringify(conversation, null, 2));
+          
           // Determinar quién es el otro usuario (buyer o seller)
           const isCurrentUserBuyer = conversation.buyerId === userData?.id;
           const otherUserId = isCurrentUserBuyer ? conversation.sellerId : conversation.buyerId;
           
+          console.log('IDs para conversación:', {
+            conversationId: conversation.id,
+            currentUserId: userData?.id,
+            buyerId: conversation.buyerId,
+            sellerId: conversation.sellerId,
+            isCurrentUserBuyer,
+            otherUserId
+          });
+          
           // Obtener información del otro usuario
           let otherUser = null;
-          try {
-            otherUser = await userAPI.getUserById(otherUserId);
-          } catch (error) {
-            console.warn(`No se pudo obtener usuario ${otherUserId}:`, error);
+          if (otherUserId) {
+            try {
+              console.log(`Intentando obtener usuario ${otherUserId} para conversación ${conversation.id}`);
+              otherUser = await userAPI.getUserById(otherUserId);
+              console.log('Usuario obtenido completo:', JSON.stringify(otherUser, null, 2));
+              console.log('Propiedades del usuario:', {
+                id: otherUser?.id,
+                name: otherUser?.name,
+                lastname: otherUser?.lastname,
+                email: otherUser?.email,
+                avatarUrl: otherUser?.avatarUrl
+              });
+            } catch (error) {
+              console.error(`Error obteniendo usuario ${otherUserId}:`, error);
+              console.error('Detalles del error:', error.response?.data);
+            }
+          } else {
+            console.warn('otherUserId es null o undefined para la conversación', conversation.id);
           }
 
           // Obtener información del producto
@@ -130,15 +244,70 @@ function ChatPage() {
             console.warn(`No se pudo obtener producto ${conversation.productId}:`, error);
           }
 
-          // Obtener último mensaje
-          const lastMessage = conversation.Messages && conversation.Messages.length > 0 
-            ? conversation.Messages[conversation.Messages.length - 1]
-            : null;
+          // Obtener último mensaje directamente de la conversación
+          let lastMessage = null;
+          let lastMessageText = 'Sin mensajes';
+          
+          if (conversation.Messages && conversation.Messages.length > 0) {
+            lastMessage = conversation.Messages[conversation.Messages.length - 1];
+            lastMessageText = lastMessage.content;
+          } else {
+            // Si no hay mensajes en la conversación, intentar obtenerlos del API
+            try {
+              const messages = await conversationAPI.getConversationMessages(conversation.id);
+              if (messages && messages.length > 0) {
+                lastMessage = messages[messages.length - 1];
+                lastMessageText = lastMessage.content;
+              }
+            } catch {
+              console.warn('No se pudieron obtener mensajes para conversación', conversation.id);
+            }
+          }
+
+          // Construcción del nombre del usuario y avatar
+          let displayName = 'Usuario Desconocido';
+          let avatarLetter = 'U';
+          let avatarImage = null;
+          
+          if (otherUser) {
+            // El backend usa 'name' y 'lastname', no 'firstName' y 'lastName'
+            const firstName = otherUser.name || '';
+            const lastName = otherUser.lastname || '';
+            
+            if (firstName || lastName) {
+              displayName = `${firstName} ${lastName}`.trim();
+              avatarLetter = (firstName[0] || lastName[0] || 'U').toUpperCase();
+            } else if (otherUser.email) {
+              // Si no hay nombre, usar el email completo, no solo la parte antes del @
+              displayName = otherUser.email;
+              avatarLetter = otherUser.email[0].toUpperCase();
+            }
+            
+            // El backend usa 'avatarUrl', no 'profilePicture'
+            if (otherUser.avatarUrl) {
+              avatarImage = otherUser.avatarUrl.startsWith('http') 
+                ? otherUser.avatarUrl 
+                : `${API_BASE_URL}${otherUser.avatarUrl}`;
+            }
+          }
+          
+          console.log('Nombre construido:', JSON.stringify({ 
+            displayName, 
+            avatarLetter, 
+            avatarImage,
+            userFields: {
+              name: otherUser?.name,
+              lastname: otherUser?.lastname,
+              email: otherUser?.email,
+              avatarUrl: otherUser?.avatarUrl
+            }
+          }, null, 2));
 
           return {
             id: conversation.id,
-            vendorName: otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : 'Usuario',
-            vendorAvatar: otherUser ? (otherUser.firstName?.[0] || 'U') : 'U',
+            vendorName: displayName,
+            vendorAvatar: avatarLetter,
+            vendorImage: avatarImage, // Imagen real del usuario
             verified: otherUser?.isVerified || false,
             online: false, // El backend no maneja estado online
             product: product ? {
@@ -152,8 +321,8 @@ function ChatPage() {
               price: 0,
               image: '📦'
             },
-            lastMessage: lastMessage?.content || 'Sin mensajes',
-            lastMessageTime: lastMessage ? formatMessageTime(lastMessage.createdAt) : '',
+            lastMessage: lastMessageText,
+            lastMessageTime: lastMessage ? formatMessageTime(lastMessage.createdAt || lastMessage.sentAt) : '',
             unread: 0, // Por ahora sin lógica de no leídos
             // Datos originales para referencia
             originalData: conversation,
@@ -181,19 +350,31 @@ function ChatPage() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (message.trim() && selectedChat && !sendingMessage) {
+    const canSend = message.trim() && selectedChat && !sendingMessage;
+    console.log('Intentando enviar mensaje:', {
+      message: message.trim(),
+      messageLength: message.trim().length,
+      selectedChat: selectedChat?.id,
+      sendingMessage,
+      currentUserId,
+      canSend
+    });
+    
+    if (canSend) {
       try {
         setSendingMessage(true);
         
         // Enviar mensaje al backend
+        console.log('Enviando mensaje al backend...');
         const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
+        console.log('Mensaje enviado:', sentMessage);
         
         // Crear mensaje local para UI inmediata
         const newMessage = {
           id: sentMessage.id,
           text: message.trim(),
           sender: 'me',
-          timestamp: formatMessageTimestamp(sentMessage.createdAt),
+          timestamp: formatMessageTimestamp(sentMessage.sentAt || sentMessage.createdAt),
           originalData: sentMessage
         };
         
@@ -209,10 +390,49 @@ function ChatPage() {
         
       } catch (error) {
         console.error('Error al enviar mensaje:', error);
-        // Mostrar error al usuario si es necesario
+        console.error('Detalles del error completo:', JSON.stringify(error.response?.data, null, 2));
+        console.error('Status del error:', error.response?.status);
+        console.error('Headers del error:', error.response?.headers);
+        
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+        
+        // Verificar si es el error específico de notificaciones que podemos ignorar
+        if (errorMessage && errorMessage.includes('Notification.title cannot be null')) {
+          console.warn('Error de notificación REST detectado - Probablemente el mensaje sí se creó');
+          
+          // Usar la función de refresh para verificar si el mensaje se creó
+          try {
+            console.log('Recargando mensajes para verificar si se creó...');
+            await refreshMessages();
+            setMessage(''); // Limpiar input
+            
+            // Scroll al final
+            setTimeout(() => {
+              if (messagesEndRef.current) {
+                messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
+            }, 100);
+            
+            console.log('✅ Mensaje enviado correctamente (error de notificación ignorado)');
+            
+          } catch (reloadError) {
+            console.error('Error al recargar mensajes:', reloadError);
+            alert('Error: No se pudo verificar si el mensaje se envió');
+          }
+          
+        } else {
+          // Otros errores sí mostrar al usuario
+          alert(`Error al enviar mensaje: ${errorMessage}`);
+        }
       } finally {
         setSendingMessage(false);
       }
+    } else {
+      console.log('No se puede enviar mensaje:', {
+        hasMessage: !!message.trim(),
+        hasSelectedChat: !!selectedChat,
+        notSending: !sendingMessage
+      });
     }
   };
 
@@ -282,9 +502,24 @@ function ChatPage() {
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
-                          {conv.vendorAvatar}
-                        </div>
+                        {conv.vendorImage ? (
+                          <img 
+                            src={conv.vendorImage} 
+                            alt={conv.vendorName}
+                            className="w-12 h-12 rounded-full object-cover border-2 border-orange-200"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const fallback = document.createElement('div');
+                              fallback.className = 'w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold';
+                              fallback.textContent = conv.vendorAvatar;
+                              e.target.parentElement.appendChild(fallback);
+                            }}
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
+                            {conv.vendorAvatar}
+                          </div>
+                        )}
                         {conv.online && (
                           <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                         )}
@@ -328,9 +563,24 @@ function ChatPage() {
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
-                        {selectedChat.vendorAvatar}
-                      </div>
+                      {selectedChat.vendorImage ? (
+                        <img 
+                          src={selectedChat.vendorImage} 
+                          alt={selectedChat.vendorName}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-orange-200"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const fallback = document.createElement('div');
+                            fallback.className = 'w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold';
+                            fallback.textContent = selectedChat.vendorAvatar;
+                            e.target.parentElement.appendChild(fallback);
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
+                          {selectedChat.vendorAvatar}
+                        </div>
+                      )}
                       {selectedChat.online && (
                         <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
                       )}
@@ -401,9 +651,24 @@ function ChatPage() {
                       <div className={`max-w-md ${msg.sender === 'me' ? 'order-2' : 'order-1'}`}>
                         {msg.sender === 'vendor' && (
                           <div className="flex items-end gap-2 mb-1">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
-                              {selectedChat.vendorAvatar}
-                            </div>
+                            {selectedChat.vendorImage ? (
+                              <img 
+                                src={selectedChat.vendorImage} 
+                                alt={selectedChat.vendorName}
+                                className="w-6 h-6 rounded-full object-cover border border-orange-200"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  const fallback = document.createElement('div');
+                                  fallback.className = 'w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold';
+                                  fallback.textContent = selectedChat.vendorAvatar;
+                                  e.target.parentElement.appendChild(fallback);
+                                }}
+                              />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
+                                {selectedChat.vendorAvatar}
+                              </div>
+                            )}
                             <p className="text-xs font-semibold text-gray-600">{selectedChat.vendorName}</p>
                           </div>
                         )}

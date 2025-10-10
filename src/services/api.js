@@ -358,46 +358,7 @@ export const categoryAPI = {
   }
 };
 
-// API para Notificaciones
-export const notificationAPI = {
-  // Obtener todas las notificaciones del usuario autenticado
-  getNotifications: async () => {
-    const response = await api.get('/notifications');
-    return response.data;
-  },
-
-  // Marcar una notificación como leída
-  markAsRead: async (notificationId) => {
-    const response = await api.put(`/notifications/${notificationId}`, {
-      isRead: true
-    });
-    return response.data;
-  },
-
-  // Eliminar una notificación específica
-  deleteNotification: async (notificationId) => {
-    const response = await api.delete(`/notifications/${notificationId}`);
-    return response.data;
-  },
-
-  // Marcar todas las notificaciones como leídas
-  markAllAsRead: async () => {
-    const response = await api.put('/notifications/mark-all-read');
-    return response.data;
-  },
-
-  // Eliminar todas las notificaciones leídas
-  deleteAllRead: async () => {
-    const response = await api.delete('/notifications/read');
-    return response.data;
-  },
-
-  // Obtener tipos de notificación
-  getTypes: async () => {
-    const response = await api.get('/notifications/types');
-    return response.data;
-  }
-};
+// Notificaciones ahora van por WebSockets - REST eliminado
 
 // API para Conversaciones
 export const conversationAPI = {
@@ -418,7 +379,7 @@ export const conversationAPI = {
 
   // Obtener mensajes de una conversación específica
   getConversationMessages: async (conversationId) => {
-    const response = await api.get(`/conversations/${conversationId}/messages`);
+    const response = await api.get(`/messages/?conversationId=${conversationId}`);
     return response.data;
   }
 };
@@ -427,16 +388,26 @@ export const conversationAPI = {
 export const messageAPI = {
   // Enviar un mensaje en una conversación
   sendMessage: async (conversationId, content) => {
-    const response = await api.post('/messages', {
-      conversationId,
-      content
+    const payload = {
+      conversationId: parseInt(conversationId), // Asegurar que sea número
+      content: content.toString() // Asegurar que sea string
+    };
+    
+    console.log('Enviando mensaje con datos:', JSON.stringify(payload, null, 2));
+    console.log('Tipos de datos:', {
+      conversationId: typeof payload.conversationId,
+      content: typeof payload.content,
+      conversationIdValue: payload.conversationId,
+      contentValue: payload.content
     });
+    
+    const response = await api.post('/messages', payload);
     return response.data;
   },
 
-  // Obtener mensajes de una conversación (alternativo)
+  // Obtener mensajes de una conversación
   getMessages: async (conversationId) => {
-    const response = await api.get(`/messages/conversation/${conversationId}`);
+    const response = await api.get(`/messages/?conversationId=${conversationId}`);
     return response.data;
   }
 };

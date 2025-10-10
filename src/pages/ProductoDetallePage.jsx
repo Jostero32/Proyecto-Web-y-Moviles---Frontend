@@ -104,7 +104,58 @@ function ProductoDetallePage() {
     }
   }, [id]);
 
+  // Función para contactar al vendedor
+  const handleContactVendor = async () => {
+    try {
+      // Verificar si el usuario está autenticado
+      if (!authAPI.isAuthenticated()) {
+        navigate('/login');
+        return;
+      }
 
+      // Verificar que el usuario no sea el mismo vendedor
+      const currentUser = authAPI.getUserData();
+      if (currentUser?.id === product?.sellerId) {
+        alert('No puedes contactarte a ti mismo');
+        return;
+      }
+
+      setContactingVendor(true);
+
+      // Primero, verificar si ya existe una conversación para este producto
+      try {
+        const myConversations = await conversationAPI.getMyConversations();
+        const existingConversation = myConversations.find(conv => 
+          conv.productId === product.id && 
+          (conv.buyerId === currentUser.id || conv.sellerId === currentUser.id)
+        );
+
+        if (existingConversation) {
+          // Ya existe una conversación, redirigir a ella
+          navigate(`/chat/${existingConversation.id}`);
+          return;
+        }
+      } catch (error) {
+        console.log('Error verificando conversaciones existentes:', error);
+      }
+
+      // Si no existe conversación, crear una nueva
+      try {
+        const newConversation = await conversationAPI.createConversation(product.id, product.sellerId);
+        navigate(`/chat/${newConversation.id}`);
+      } catch (createError) {
+        console.error('Error creando conversación:', createError);
+        // Como fallback, ir al chat general donde se podrán ver las conversaciones
+        navigate('/chat');
+      }
+
+    } catch (error) {
+      console.error('Error al contactar vendedor:', error);
+      alert('Error al iniciar conversación. Inténtalo de nuevo.');
+    } finally {
+      setContactingVendor(false);
+    }
+  };
 
   // Estados de loading y error
   if (loading) {
@@ -286,13 +337,46 @@ function ProductoDetallePage() {
 
                 {/* Botón de Acción */}
                 <div className="mb-6">
-                  <button
-                    onClick={() => alert('Funcionalidad de chat próximamente')}
-                    className="w-full py-4 text-white font-bold rounded-xl transition-all hover:opacity-90 shadow-lg flex items-center justify-center gap-2"
-                    style={{ backgroundColor: '#CF5C36' }}>
-                    <FiMessageCircle className="text-xl" />
-                    Contactar vendedor
-                  </button>
+                  {(() => {
+                    const currentUser = authAPI.getUserData();
+                    const isOwnProduct = currentUser?.id === product?.sellerId;
+                    
+                    if (isOwnProduct) {
+                      return (
+                        <div className="w-full py-4 bg-gray-100 text-gray-500 font-bold rounded-xl flex items-center justify-center gap-2 border-2 border-dashed border-gray-300">
+                          <FiMessageCircle className="text-xl" />
+                          Este es tu producto
+                        </div>
+                      );
+                    }
+                    
+                    if (!authAPI.isAuthenticated()) {
+                      return (
+                        <button
+                          onClick={() => navigate('/login')}
+                          className="w-full py-4 text-white font-bold rounded-xl transition-all hover:opacity-90 shadow-lg flex items-center justify-center gap-2"
+                          style={{ backgroundColor: '#CF5C36' }}>
+                          <FiMessageCircle className="text-xl" />
+                          Iniciar sesión para contactar
+                        </button>
+                      );
+                    }
+                    
+                    return (
+                      <button
+                        onClick={handleContactVendor}
+                        disabled={contactingVendor}
+                        className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                          contactingVendor 
+                            ? 'opacity-50 cursor-not-allowed' 
+                            : 'hover:opacity-90'
+                        }`}
+                        style={{ backgroundColor: '#CF5C36' }}>
+                        <FiMessageCircle className={`text-xl ${contactingVendor ? 'animate-pulse' : ''}`} />
+                        {contactingVendor ? 'Iniciando chat...' : 'Contactar vendedor'}
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Info del Vendedor */}
