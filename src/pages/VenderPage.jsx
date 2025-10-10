@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUpload, FiDollarSign, FiMapPin, FiTag } from 'react-icons/fi';
 import LocationPicker from '../components/common/LocationPicker';
-import { categoriesData } from '../data/categories';
+
 import { productAPI, categoryAPI, authAPI } from '../services/api';
 
 function VenderPage() {
@@ -33,8 +33,8 @@ function VenderPage() {
           return;
         }
 
-        // Cargar categorías del backend (opcional para mapear con el frontend)
-        const categories = await categoryAPI.getAll();
+        // Cargar categorías del backend con subcategorías
+        const categories = await categoryAPI.getMain();
         setBackendCategories(categories);
       } catch (error) {
         console.error('Error cargando datos:', error);
@@ -70,32 +70,7 @@ function VenderPage() {
     });
   };
 
-  // Mapear categoría del frontend al ID del backend
-  const getCategoryId = (categoryValue) => {
-    // Primero intentar encontrar en las categorías del backend
-    const selectedFrontendCategory = categoriesData.find(cat => cat.value === categoryValue);
-    if (selectedFrontendCategory && backendCategories.length > 0) {
-      // Buscar por nombre similar en el backend
-      const backendCategory = backendCategories.find(cat => 
-        cat.name.toLowerCase().includes(selectedFrontendCategory.label.toLowerCase()) ||
-        selectedFrontendCategory.label.toLowerCase().includes(cat.name.toLowerCase())
-      );
-      if (backendCategory) {
-        return backendCategory.id;
-      }
-    }
-    
-    // Mapeo manual como fallback
-    const categoryMapping = {
-      'tecnologia': 1,
-      'hogar': 2, 
-      'moda': 3,
-      'deportes': 4,
-      'entretenimiento': 5,
-      'vehiculos': 6
-    };
-    return categoryMapping[categoryValue] || 1; // Default a tecnología
-  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -105,10 +80,7 @@ function VenderPage() {
       showNotification('error', 'Por favor ingresa un título para tu producto');
       return;
     }
-    if (!formData.description.trim()) {
-      showNotification('error', 'Por favor ingresa una descripción para tu producto');
-      return;
-    }
+    // Descripción es opcional, no necesita validación
     if (!formData.price || parseFloat(formData.price) <= 0) {
       showNotification('error', 'Por favor ingresa un precio válido mayor a 0');
       return;
@@ -125,7 +97,7 @@ function VenderPage() {
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
-        categoryId: getCategoryId(formData.category),
+        categoryId: formData.subcategory || formData.category, // Usar subcategoría si existe, sino categoría principal
         location: formData.location || '',
         locationCoords: formData.locationCoords || {}
       };
@@ -171,7 +143,7 @@ function VenderPage() {
     setFormData({ ...formData, images: [...formData.images, ...files] });
   };
 
-  const selectedCategoryData = categoriesData.find(cat => cat.value === formData.category);
+  const selectedCategoryData = backendCategories.find(cat => cat.id === formData.category);
   const subcategories = selectedCategoryData ? selectedCategoryData.subcategories : [];
 
   return (
@@ -195,19 +167,19 @@ function VenderPage() {
               Categoría *
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {categoriesData.map((cat) => (
+              {backendCategories.map((cat) => (
                 <button
-                  key={cat.value}
+                  key={cat.id}
                   type="button"
-                  onClick={() => handleCategoryChange(cat.value)}
+                  onClick={() => handleCategoryChange(cat.id)}
                   className={`p-4 rounded-xl border-2 transition-all ${
-                    formData.category === cat.value
+                    formData.category === cat.id
                       ? 'border-orange-500 bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <cat.icon className="text-3xl mx-auto mb-2" style={{ color: cat.color }} />
-                  <span className="text-sm font-semibold">{cat.label}</span>
+                  <FiTag className="text-3xl mx-auto mb-2 text-orange-500" />
+                  <span className="text-sm font-semibold">{cat.name}</span>
                 </button>
               ))}
             </div>
@@ -227,16 +199,16 @@ function VenderPage() {
                 <div className="flex flex-wrap gap-3">
                   {subcategories.map((sub) => (
                     <button
-                      key={sub.value}
+                      key={sub.id}
                       type="button"
-                      onClick={() => setFormData({ ...formData, subcategory: sub.value })}
+                      onClick={() => setFormData({ ...formData, subcategory: sub.id })}
                       className={`px-5 py-3 rounded-xl text-sm font-semibold transition-all ${
-                        formData.subcategory === sub.value
+                        formData.subcategory === sub.id
                           ? 'bg-orange-500 text-white shadow-lg transform scale-105'
                           : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:shadow-md'
                       }`}
                     >
-                      {sub.label}
+                      {sub.name}
                     </button>
                   ))}
                 </div>
@@ -268,10 +240,9 @@ function VenderPage() {
           {/* Descripción */}
           <div className="mb-6">
             <label className="block text-lg font-bold text-gray-900 mb-2">
-              Descripción *
+              Descripción
             </label>
             <textarea
-              required
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe tu producto, incluye detalles importantes..."

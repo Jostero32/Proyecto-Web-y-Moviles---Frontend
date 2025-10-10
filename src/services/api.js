@@ -274,6 +274,38 @@ export const productAPI = {
   getMyProducts: async () => {
     const response = await api.get('/products/my');
     return response.data;
+  },
+
+  updateProduct: async (productId, productData, photos = null) => {
+    const formData = new FormData();
+    
+    // Agregar datos del producto
+    if (productData.title) formData.append('title', productData.title);
+    if (productData.description) formData.append('description', productData.description);
+    if (productData.price) formData.append('price', productData.price);
+    if (productData.categoryId) formData.append('categoryId', productData.categoryId);
+    if (productData.location) formData.append('location', productData.location);
+    if (productData.locationCoords) formData.append('locationCoords', JSON.stringify(productData.locationCoords));
+    if (productData.status) formData.append('status', productData.status);
+    
+    // Agregar fotos si se proporcionaron
+    if (photos && photos.length > 0) {
+      photos.forEach((photo) => {
+        formData.append('photos', photo);
+      });
+    }
+    
+    const response = await api.put(`/products/${productId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteProduct: async (productId) => {
+    const response = await api.delete(`/products/${productId}`);
+    return response.data;
   }
 };
 

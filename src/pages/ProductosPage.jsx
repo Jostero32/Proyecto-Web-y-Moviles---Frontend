@@ -96,7 +96,7 @@ function ProductosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      
       
       <div className="sb-container py-8">
         {/* Header de búsqueda */}
@@ -264,7 +264,7 @@ function ProductosPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }
