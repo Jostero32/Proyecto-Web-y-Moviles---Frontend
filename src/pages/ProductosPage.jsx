@@ -11,24 +11,28 @@ import Footer from '../components/common/Footer';
 function ProductosPage() {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [selectedCategory, setSelectedCategory] = useState('todos');
   const [priceRange, setPriceRange] = useState('Todos');
   const [location, setLocation] = useState('Todos');
   const [showFilters, setShowFilters] = useState(false);
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState(['Todos']);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Cargar el término de búsqueda desde los parámetros de URL
   useEffect(() => {
     const searchFromUrl = searchParams.get('search');
     const categoryFromUrl = searchParams.get('category');
+    const categoryIdFromUrl = searchParams.get('categoryId');
 
     if (searchFromUrl) {
       setSearchTerm(searchFromUrl);
     }
 
-    if (categoryFromUrl) {
+    // Priorizar categoryId sobre category
+    if (categoryIdFromUrl) {
+      setSelectedCategory(categoryIdFromUrl);
+    } else if (categoryFromUrl) {
       setSelectedCategory(categoryFromUrl);
     }
   }, [searchParams]);
@@ -40,14 +44,26 @@ function ProductosPage() {
         setLoading(true);
         const [productsData, categoriesData] = await Promise.all([
           productAPI.getAll(),
-          categoryAPI.getAll()
+          categoryAPI.getMain()
         ]);
         
         setProducts(productsData);
         
-        // Agregar "Todos" al inicio de las categorías
-        const categoriesList = ['Todos', ...categoriesData.map(cat => cat.name)];
-        setCategories(categoriesList);
+        // Crear lista plana de categorías y subcategorías para el filtro
+        const flatCategories = [
+          { id: 'todos', name: 'Todos' }
+        ];
+        
+        categoriesData.forEach(cat => {
+          flatCategories.push({ id: cat.id, name: cat.name, type: 'category' });
+          if (cat.subcategories) {
+            cat.subcategories.forEach(sub => {
+              flatCategories.push({ id: sub.id, name: `${cat.name} > ${sub.name}`, type: 'subcategory' });
+            });
+          }
+        });
+        
+        setCategories(flatCategories);
         
       } catch (error) {
         console.error('Error al cargar datos:', error);
@@ -75,8 +91,11 @@ function ProductosPage() {
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Filtro de categoría - por ahora mantenemos simple hasta tener la relación completa
-    const matchesCategory = selectedCategory === 'Todos'; // TODO: implementar filtro por categoryId
+    // Filtro de categoría usando IDs del backend
+    let matchesCategory = selectedCategory === 'todos';
+    if (!matchesCategory && product.Category) {
+      matchesCategory = product.Category.id === selectedCategory;
+    }
     
     // El backend no tiene location por ahora, así que lo mantenemos como true
     const matchesLocation = location === 'Todos' || true;
@@ -143,7 +162,7 @@ function ProductosPage() {
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 >
                   {categories.map(category => (
-                    <option key={category} value={category}>{category}</option>
+                    <option key={category.id} value={category.id}>{category.name}</option>
                   ))}
                 </select>
               </div>
@@ -200,7 +219,7 @@ function ProductosPage() {
               <button
                 onClick={() => {
                   setSearchTerm('');
-                  setSelectedCategory('Todos');
+                  setSelectedCategory('todos');
                   setPriceRange('Todos');
                   setLocation('Todos');
                 }}
