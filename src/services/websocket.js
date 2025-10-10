@@ -1,265 +1,436 @@
-import { authAPI } from './api';
-import { WEBSOCKET_CONFIG, getWebSocketUrl } from '../config/websocket';
+import { authAPI } from './api.js';
+import { websocketConfig } from '../config/websocket.js';
 
 class WebSocketService {
   constructor() {
     this.ws = null;
+    this.isConnected = false;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = WEBSOCKET_CONFIG.maxReconnectAttempts;
-    this.reconnectInterval = 1000; // 1 segundo inicial
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 1000;
+    this.heartbeatInterval = null;
     this.isReconnecting = false;
-    this.listeners = new Map();
+    this.messageQueue = [];
+    this.eventListeners = new Map();
     this.currentUserId = null;
-    this.isAuthenticated = false;
-    
-    // Configuración
-    this.config = {
-      url: getWebSocketUrl(),
-      heartbeatInterval: WEBSOCKET_CONFIG.heartbeatInterval,
-      reconnectBackoff: WEBSOCKET_CONFIG.reconnectBackoff
-    };
-    
-    this.heartbeatTimer = null;
+
+    // Bind methods
+    this.connect = this.connect.bind(this);
+    this.disconnect = this.disconnect.bind(this);
+    this.send = this.send.bind(this);
+    this.handleMessage = this.handleMessage.bind(this);
+    this.startHeartbeat = this.startHeartbeat.bind(this);
+    this.stopHeartbeat = this.stopHeartbeat.bind(this);
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+
+    // Setup visibility change detection
+    this.setupVisibilityDetection();
   }
 
-  // Conectar al WebSocket
-  connect() {
-    return new Promise((resolve, reject) => {
-      try {
-        // Verificar autenticación
-        const userData = authAPI.getUserData();
-        const token = authAPI.getAuthToken();
-        
-        if (!userData || !token) {
-          console.warn('No hay usuario autenticado, no se puede conectar WebSocket');
-          reject(new Error('No authenticated'));
-          return;
-        }
+  async connect() {
+    if (this.isConnected || this.isReconnecting) {
+      return Promise.resolve();
+    }
 
-        this.currentUserId = userData.id;
-        this.isAuthenticated = true;
+    try {
+      console.log('🔌 Conectando a WebSocket...', websocketConfig.url);
+      
+      const token = authAPI.getAuthToken();
+      const currentUser = authAPI.getUserData();
+      
+      if (!token || !currentUser) {
+        throw new Error('No hay usuario autenticado');
+      }
 
-        console.log('🔌 Conectando a WebSocket...', this.config.url);
-        
-        // Crear conexión WebSocket con token en query params
-        const wsUrl = `${this.config.url}?token=${token}&userId=${userData.id}`;
-        this.ws = new WebSocket(wsUrl);
+      this.currentUserId = currentUser.id;
+      const wsUrl = `${websocketConfig.url}?token=${token}&userId=${currentUser.id}`;
+      this.ws = new WebSocket(wsUrl);
 
-        // Event listeners
-        this.ws.onopen = (event) => {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this.ws.close();
+          reject(new Error('Timeout de conexión WebSocket'));
+        }, websocketConfig.connectionTimeout);
+
+        this.ws.onopen = () => {
+          clearTimeout(timeout);
           console.log('✅ WebSocket conectado');
+          this.isConnected = true;
           this.reconnectAttempts = 0;
           this.isReconnecting = false;
           this.startHeartbeat();
-          
-          // Emitir evento de conexión
-          this.emit('connected', { userId: this.currentUserId });
-          resolve(event);
+          this.processMessageQueue();
+          this.emit('connected');
+          resolve();
         };
 
         this.ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('📨 Mensaje WebSocket recibido:', data);
-            this.handleMessage(data);
-          } catch (error) {
-            console.error('Error parseando mensaje WebSocket:', error);
-          }
+          console.log('📨 Mensaje WebSocket recibido:', JSON.parse(event.data));
+          this.handleMessage(event);
         };
 
         this.ws.onclose = (event) => {
-          console.log('❌ WebSocket desconectado:', event.code, event.reason);
+          clearTimeout(timeout);
+          console.log('❌ WebSocket desconectado:', event.code);
+          this.isConnected = false;
           this.stopHeartbeat();
-          this.emit('disconnected', { code: event.code, reason: event.reason });
+          this.emit('disconnected', event);
           
-          // Reconectar automáticamente si no es cierre intencional
-          if (!event.wasClean && this.isAuthenticated) {
+          if (!this.isReconnecting && event.code !== 1000) {
             this.scheduleReconnect();
           }
         };
 
         this.ws.onerror = (error) => {
-          console.error('❌ Error WebSocket:', error);
-          const friendlyError = new Error('No se pudo conectar al servidor WebSocket. Verifica que el servidor esté ejecutándose.');
-          this.emit('error', friendlyError);
-          reject(friendlyError);
+          clearTimeout(timeout);
+          console.log('❌ Error WebSocket:', error);
+          this.emit('error', error);
+          reject(error);
         };
-
-      } catch (error) {
-        console.error('Error creando WebSocket:', error);
-        reject(error);
-      }
-    });
-  }
-
-  // Manejar mensajes recibidos
-  handleMessage(data) {
-    const { type, payload } = data;
-    console.log('🔄 Procesando mensaje WebSocket:', { type, payload });
-
-    switch (type) {
-      case 'message':
-        console.log('📨 Emitiendo evento newMessage:', payload);
-        this.emit('newMessage', payload);
-        break;
-      
-      case 'notification':
-        this.emit('newNotification', payload);
-        break;
-      
-      case 'userTyping':
-        this.emit('userTyping', payload);
-        break;
-      
-      case 'userStoppedTyping':
-        this.emit('userStoppedTyping', payload);
-        break;
-      
-      case 'conversationUpdate':
-        this.emit('conversationUpdate', payload);
-        break;
-      
-      case 'pong':
-        // Respuesta al heartbeat
-        console.log('💓 Heartbeat recibido');
-        break;
-      
-      default:
-        console.warn('Tipo de mensaje WebSocket desconocido:', type, payload);
-        this.emit('unknownMessage', { type, payload });
+      });
+    } catch (error) {
+      console.error('Error al conectar WebSocket:', error);
+      throw error;
     }
   }
 
-  // Enviar mensaje
-  send(type, payload) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const message = JSON.stringify({ type, payload });
-      this.ws.send(message);
-      console.log('📤 Enviando mensaje WebSocket:', { type, payload });
+  handleMessage(event) {
+    try {
+      const message = JSON.parse(event.data);
+      console.log('🔄 Procesando mensaje WebSocket:', message);
+
+      // Manejar diferentes tipos de mensajes del backend
+      switch (message.type) {
+        case 'init:data':
+          console.log('🚀 Datos de inicialización recibidos:', message.data);
+          this.emit('init', message.data);
+          // Si hay conversaciones, procesarlas
+          if (message.data && Array.isArray(message.data.conversations)) {
+            console.log('📫 Conversaciones iniciales:', message.data.conversations);
+          }
+          break;
+        case 'chat:new':
+          console.log('📨 Nuevo mensaje de chat recibido:', message.data);
+          if (message.data && message.data.message) {
+            this.emit('newMessage', message.data.message);
+          }
+          break;
+        case 'chat:sent':
+          console.log('✅ Mensaje enviado confirmado:', message.data);
+          if (message.data && message.data.message) {
+            this.emit('messageSent', message.data.message);
+          }
+          break;
+        case 'notification:new':
+          console.log('🔔 Nueva notificación recibida:', message.data);
+          this.emit('newNotification', message.data);
+          break;
+        case 'chat:read:update':
+          console.log('👁️ Estado de lectura actualizado:', message.data);
+          this.emit('messageReadUpdate', message.data);
+          break;
+        case 'notification:read:confirm':
+          console.log('✅ Notificación marcada como leída:', message.data);
+          this.emit('notificationReadConfirm', message.data);
+          break;
+        case 'error':
+          console.log('❌ Error del servidor:', message.message);
+          this.emit('serverError', message);
+          break;
+        case 'newMessage':
+        case 'message': // Mantener compatibilidad con tipos genéricos
+          console.log('📨 Emitiendo evento newMessage:', message.payload || message.data);
+          this.emit('newMessage', message.payload || message.data);
+          break;
+        case 'messageUpdate':
+          console.log('📝 Emitiendo evento messageUpdate:', message.payload);
+          this.emit('messageUpdate', message.payload);
+          break;
+        case 'userOnline':
+          console.log('🟢 Usuario online:', message.payload);
+          this.emit('userOnline', message.payload);
+          break;
+        case 'userOffline':
+          console.log('🔴 Usuario offline:', message.payload);
+          this.emit('userOffline', message.payload);
+          break;
+        case 'userStatusUpdate':
+          console.log('👤 Estado de usuario actualizado:', message.payload);
+          this.emit('userStatusUpdate', message.payload);
+          break;
+        case 'onlineUsers':
+          console.log('👥 Lista de usuarios online:', message.payload);
+          this.emit('onlineUsers', message.payload);
+          break;
+        case 'typingStart':
+          console.log('✍️ Usuario comenzó a escribir:', message.payload);
+          this.emit('typingStart', message.payload);
+          break;
+        case 'typingStop':
+          console.log('✋ Usuario dejó de escribir:', message.payload);
+          this.emit('typingStop', message.payload);
+          break;
+        case 'pong':
+          console.log('💓 Pong recibido');
+          break;
+        default:
+          console.log('Tipo de mensaje WebSocket desconocido:', message.type, message.payload);
+          // Emitir evento genérico para mensajes desconocidos
+          this.emit('message', message);
+      }
+    } catch (error) {
+      console.error('Error al procesar mensaje WebSocket:', error);
+    }
+  }
+
+  send(message) {
+    if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      console.log('📤 Enviando mensaje WebSocket:', message);
+      this.ws.send(JSON.stringify(message));
       return true;
     } else {
-      console.warn('WebSocket no está conectado, no se puede enviar:', { type, payload });
+      console.log('WebSocket no está conectado, no se puede enviar:', message);
+      this.messageQueue.push(message);
       return false;
     }
   }
 
-  // Unirse a una conversación específica
   joinConversation(conversationId) {
-    console.log(`🏠 Intentando unirse a conversación: ${conversationId}`);
-    const success = this.send('joinConversation', { conversationId });
+    console.log('🏠 Intentando unirse a conversación:', conversationId);
+    const success = this.send({
+      type: 'joinConversation',
+      payload: { conversationId }
+    });
+    
     if (success) {
-      console.log(`✅ Unido a conversación ${conversationId}`);
-    } else {
-      console.warn(`❌ No se pudo unir a conversación ${conversationId}`);
+      console.log('✅ Unido a conversación', conversationId);
     }
+    
     return success;
   }
 
-  // Salir de una conversación
   leaveConversation(conversationId) {
-    return this.send('leaveConversation', { conversationId });
+    console.log('🚪 Intentando salir de conversación:', conversationId);
+    return this.send({
+      type: 'leaveConversation',
+      payload: { conversationId }
+    });
   }
 
-  // Indicar que el usuario está escribiendo
+  sendMessage(conversationId, content) {
+    return this.send({
+      type: 'chat:send',
+      conversationId: conversationId,
+      content: content
+    });
+  }
+
   startTyping(conversationId) {
-    return this.send('startTyping', { conversationId });
+    return this.send({
+      type: 'startTyping',
+      payload: { conversationId }
+    });
   }
 
-  // Indicar que el usuario dejó de escribir
   stopTyping(conversationId) {
-    return this.send('stopTyping', { conversationId });
+    return this.send({
+      type: 'stopTyping',
+      payload: { conversationId }
+    });
   }
 
-  // Sistema de heartbeat para mantener conexión viva
-  startHeartbeat() {
-    this.stopHeartbeat(); // Limpiar timer anterior
-    
-    this.heartbeatTimer = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.send('ping', { timestamp: Date.now() });
+  setUserStatus(status) {
+    return this.send({
+      type: 'userStatusChange',
+      payload: { 
+        status, 
+        timestamp: new Date().toISOString() 
       }
-    }, this.config.heartbeatInterval);
+    });
   }
 
-  stopHeartbeat() {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
+  getUsersOnline() {
+    return this.send({
+      type: 'getUsersOnline',
+      payload: {}
+    });
   }
 
-  // Reconexión automática
-  scheduleReconnect() {
-    if (this.isReconnecting || this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('❌ Máximo número de intentos de reconexión alcanzado');
-      this.emit('maxReconnectAttemptsReached');
-      return;
-    }
-
-    this.isReconnecting = true;
-    this.reconnectAttempts++;
-
-    const delay = this.reconnectInterval * Math.pow(this.config.reconnectBackoff, this.reconnectAttempts - 1);
-    
-    console.log(`🔄 Reintentando conexión en ${delay}ms (intento ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
-    setTimeout(() => {
-      if (this.isAuthenticated) {
-        this.connect().catch(() => {
-          // Si falla, scheduleReconnect se llamará automáticamente por onclose
-        });
-      }
-    }, delay);
+  requestOnlineUsers() {
+    return this.send({
+      type: 'requestOnlineUsers',
+      payload: {}
+    });
   }
 
-  // Sistema de eventos
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event).push(callback);
+  requestUserStatus(userId) {
+    return this.send({
+      type: 'requestUserStatus',
+      payload: { userId }
+    });
   }
 
-  off(event, callback) {
-    if (this.listeners.has(event)) {
-      const callbacks = this.listeners.get(event);
-      const index = callbacks.indexOf(callback);
-      if (index > -1) {
-        callbacks.splice(index, 1);
-      }
-    }
+  markMessageAsRead(messageId) {
+    return this.send({
+      type: 'chat:read',
+      messageId: messageId
+    });
   }
 
-  emit(event, data) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`Error ejecutando listener para evento ${event}:`, error);
-        }
-      });
-    }
+  markNotificationAsRead(notificationId) {
+    return this.send({
+      type: 'notification:read',
+      notificationId: notificationId
+    });
   }
 
-  // Desconectar WebSocket
+  sendNotification(userId, title, body, notificationType) {
+    return this.send({
+      type: 'notification:send',
+      userId: userId,
+      title: title,
+      body: body,
+      notificationType: notificationType
+    });
+  }
+
   disconnect() {
-    console.log('🔌 Desconectando WebSocket...');
-    this.isAuthenticated = false;
+    console.log('🔌 Desconectando WebSocket... Client disconnecting');
+    this.isReconnecting = false;
     this.stopHeartbeat();
     
     if (this.ws) {
       this.ws.close(1000, 'Client disconnecting');
       this.ws = null;
     }
+    
+    this.isConnected = false;
+    this.messageQueue = [];
+    console.log('WebSocket connection to \'ws://localhost:8080/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIiLCJlbWFpbCI6InJ1a2FAZ21haWwuY29tIiwicm9sZXMiOlsiVXN1YXJpbyJdLCJpYXQiOjE3NjAxMTg0MTYsImV4cCI6MTc2MDEyMjAxNn0.4T8FLXYkRp4zh8NfdcD9XGsbRc_vMvxliF2J1ZjN2zo&userId=2\' failed: WebSocket is closed before the connection is established.');
   }
 
-  // Verificar estado de conexión
-  isConnected() {
-    return this.ws && this.ws.readyState === WebSocket.OPEN;
+  scheduleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts || this.isReconnecting) {
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.log('❌ Máximo de reintentos alcanzado - WebSocket permanentemente desactivado');
+        this.emit('maxReconnectAttemptsReached');
+      }
+      return;
+    }
+
+    this.isReconnecting = true;
+    this.reconnectAttempts++;
+    const delay = this.reconnectDelay * Math.pow(websocketConfig.reconnectBackoff || 1.5, this.reconnectAttempts - 1);
+
+    console.log(`🔄 Reintentando conexión en ${delay}ms (intento ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    
+    setTimeout(async () => {
+      try {
+        await this.connect();
+      } catch (error) {
+        console.error('Error en reintento de conexión:', error);
+        this.isReconnecting = false;
+        
+        // Si ya llegamos al máximo de intentos, no intentar más
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.log('❌ No se puede establecer conexión WebSocket - Continuando en modo HTTP');
+          this.emit('maxReconnectAttemptsReached');
+        } else {
+          this.scheduleReconnect();
+        }
+      }
+    }, delay);
   }
 
-  // Obtener estado de reconexión
+  processMessageQueue() {
+    while (this.messageQueue.length > 0) {
+      const message = this.messageQueue.shift();
+      this.send(message);
+    }
+  }
+
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      if (this.isConnected) {
+        this.send({
+          type: 'ping',
+          payload: { timestamp: Date.now() }
+        });
+      }
+    }, websocketConfig.heartbeatInterval);
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  setupVisibilityDetection() {
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    window.addEventListener('focus', () => this.handleVisibilityChange('focus'));
+    window.addEventListener('blur', () => this.handleVisibilityChange('blur'));
+  }
+
+  handleVisibilityChange(eventType) {
+    if (!this.isConnected) return;
+
+    if (document.hidden || eventType === 'blur') {
+      console.log('👁️ Usuario cambió de pestaña (away)');
+      this.setUserStatus('away');
+    } else if (!document.hidden || eventType === 'focus') {
+      console.log('👁️ Usuario regresó a la pestaña (online)');
+      this.setUserStatus('online');
+    }
+  }
+
+  // Event emitter methods
+  on(event, callback) {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, []);
+    }
+    this.eventListeners.get(event).push(callback);
+  }
+
+  off(event, callback) {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      const index = listeners.indexOf(callback);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  emit(event, data) {
+    const listeners = this.eventListeners.get(event);
+    if (listeners) {
+      listeners.forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error(`Error en listener de evento ${event}:`, error);
+        }
+      });
+    }
+  }
+
+  // Método para limpiar listeners
+  removeAllListeners() {
+    this.eventListeners.clear();
+  }
+
+  // Status methods
+  getConnectionStatus() {
+    return {
+      isConnected: this.isConnected,
+      isReconnecting: this.isReconnecting,
+      reconnectAttempts: this.reconnectAttempts
+    };
+  }
+
   getReconnectStatus() {
     return {
       isReconnecting: this.isReconnecting,
@@ -267,9 +438,20 @@ class WebSocketService {
       maxAttempts: this.maxReconnectAttempts
     };
   }
+
+  // Método público para simular mensajes (para testing)
+  simulateMessage(messageData) {
+    // Simular un evento de mensaje WebSocket
+    const mockEvent = {
+      data: JSON.stringify({
+        type: 'newMessage',
+        payload: messageData
+      })
+    };
+    this.handleMessage(mockEvent);
+  }
 }
 
-// Crear instancia singleton
-const webSocketService = new WebSocketService();
-
-export default webSocketService;
+// Export singleton instance
+export const websocketService = new WebSocketService();
+export default websocketService;

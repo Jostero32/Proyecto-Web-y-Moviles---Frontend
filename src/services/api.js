@@ -128,6 +128,23 @@ export const authAPI = {
   },
 
   logout: () => {
+    // Notificar al WebSocket que el usuario está cerrando sesión
+    try {
+      import('./websocket').then(({ default: webSocketService }) => {
+        if (webSocketService.isConnected()) {
+          console.log('🚪 Notificando logout al WebSocket...');
+          webSocketService.send('userLogout', { reason: 'manual_logout' });
+          
+          // Dar tiempo para que se envíe el mensaje antes de desconectar
+          setTimeout(() => {
+            webSocketService.disconnect();
+          }, 500);
+        }
+      });
+    } catch (error) {
+      console.warn('No se pudo notificar logout al WebSocket:', error);
+    }
+    
     cookieUtils.removeAuthToken();
     cookieUtils.removeUserData();
   },

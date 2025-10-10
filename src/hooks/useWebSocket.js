@@ -163,8 +163,25 @@ export const useWebSocketMessages = (conversationId) => {
       }
     };
 
+    const handleMessageSent = (messageData) => {
+      console.log('✅ Mensaje confirmado por WebSocket:', messageData);
+      // Actualizar mensaje temporal con datos reales del servidor
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.pending && msg.text === messageData.content ? {
+            ...msg,
+            id: messageData.id,
+            pending: false,
+            timestamp: formatMessageTimestamp(messageData.sentAt || messageData.createdAt),
+            originalData: messageData
+          } : msg
+        )
+      );
+    };
+
     // Suscribirse a eventos
     webSocketService.on('newMessage', handleNewMessage);
+    webSocketService.on('messageSent', handleMessageSent);
     webSocketService.on('userTyping', handleUserTyping);
     webSocketService.on('userStoppedTyping', handleUserStoppedTyping);
 
@@ -180,6 +197,7 @@ export const useWebSocketMessages = (conversationId) => {
     return () => {
       // Cleanup
       webSocketService.off('newMessage', handleNewMessage);
+      webSocketService.off('messageSent', handleMessageSent);
       webSocketService.off('userTyping', handleUserTyping);
       webSocketService.off('userStoppedTyping', handleUserStoppedTyping);
       
@@ -243,6 +261,115 @@ export const useWebSocketNotifications = () => {
     addNotification,
     removeNotification,
     markAsRead
+  };
+};
+
+// Hook para manejar estado online de usuarios
+export const useOnlineUsers = () => {
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [userStatuses, setUserStatuses] = useState(new Map()); // userId -> {status, lastSeen}
+
+  const isUserOnline = useCallback((userId) => {
+    return onlineUsers.has(userId?.toString());
+  }, [onlineUsers]);
+
+  const getUserStatus = useCallback((userId) => {
+    return userStatuses.get(userId?.toString()) || { status: 'offline', lastSeen: null };
+  }, [userStatuses]);
+
+  const requestUserStatus = useCallback((userId) => {
+    return webSocketService.requestUserStatus(userId);
+  }, []);
+
+  const requestOnlineUsers = useCallback(() => {
+    return webSocketService.requestOnlineUsers();
+  }, []);
+
+  useEffect(() => {
+    const handleUserOnline = (payload) => {
+      const { userId, status = 'online', timestamp } = payload;
+      console.log('🟢 Usuario conectado:', { userId, status });
+      
+      setOnlineUsers(prev => new Set([...prev, userId.toString()]));
+      setUserStatuses(prev => new Map(prev).set(userId.toString(), {
+        status,
+        lastSeen: timestamp || new Date().toISOString()
+      }));
+    };
+
+    const handleUserOffline = (payload) => {
+      const { userId, timestamp } = payload;
+      console.log('🔴 Usuario desconectado:', { userId });
+      
+      setOnlineUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId.toString());
+        return newSet;
+      });
+      
+      setUserStatuses(prev => new Map(prev).set(userId.toString(), {
+        status: 'offline',
+        lastSeen: timestamp || new Date().toISOString()
+      }));
+    };
+
+    const handleOnlineUsersList = (payload) => {
+      const { users = [] } = payload;
+      console.log('👥 Lista de usuarios online recibida:', users);
+      
+      const onlineUserIds = new Set(users.map(user => 
+        typeof user === 'object' ? user.userId?.toString() : user?.toString()
+      ));
+      
+      const statusMap = new Map();
+      users.forEach(user => {
+        if (typeof user === 'object') {
+          statusMap.set(user.userId?.toString(), {
+            status: user.status || 'online',
+            lastSeen: user.lastSeen || new Date().toISOString()
+          });
+        } else {
+          statusMap.set(user?.toString(), {
+            status: 'online',
+            lastSeen: new Date().toISOString()
+          });
+        }
+      });
+      
+      setOnlineUsers(onlineUserIds);
+      setUserStatuses(statusMap);
+    };
+
+    // Suscribirse a eventos
+    webSocketService.on('userOnline', handleUserOnline);
+    webSocketService.on('userOffline', handleUserOffline);
+    webSocketService.on('onlineUsers', handleOnlineUsersList);
+
+    // Solicitar lista inicial de usuarios online cuando se conecta
+    const handleConnected = () => {
+      setTimeout(() => {
+        console.log('🔍 Solicitando lista inicial de usuarios online...');
+        webSocketService.requestOnlineUsers();
+      }, 1000); // Esperar 1 segundo después de conectar
+    };
+
+    webSocketService.on('connected', handleConnected);
+
+    return () => {
+      webSocketService.off('userOnline', handleUserOnline);
+      webSocketService.off('userOffline', handleUserOffline);
+      webSocketService.off('onlineUsers', handleOnlineUsersList);
+      webSocketService.off('connected', handleConnected);
+    };
+  }, []);
+
+  return {
+    onlineUsers,
+    userStatuses,
+    isUserOnline,
+    getUserStatus,
+    requestUserStatus,
+    requestOnlineUsers
   };
 };
 

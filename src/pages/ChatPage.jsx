@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch, FiWifi, FiWifiOff } from 'react-icons/fi';
 import { MdVerified } from 'react-icons/md';
 import { authAPI, conversationAPI, messageAPI, userAPI, productAPI, API_BASE_URL } from '../services/api';
-import { useWebSocket, useWebSocketMessages } from '../hooks/useWebSocket';
+import { useWebSocket, useWebSocketMessages, useOnlineUsers } from '../hooks/useWebSocket';
 
 // Función para formatear fecha relativa para mensajes
 const formatMessageTime = (dateString) => {
@@ -22,6 +22,25 @@ const formatMessageTime = (dateString) => {
   if (diffInDays < 7) return `${diffInDays}d`;
   
   return messageDate.toLocaleDateString('es-EC', { month: 'short', day: 'numeric' });
+};
+
+// Función para formatear "última vez visto"
+const formatLastSeen = (dateString) => {
+  const lastSeenDate = new Date(dateString);
+  const now = new Date();
+  const diffInMinutes = Math.floor((now - lastSeenDate) / (1000 * 60));
+  
+  if (diffInMinutes < 1) return 'hace un momento';
+  if (diffInMinutes < 60) return `hace ${diffInMinutes}m`;
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `hace ${diffInHours}h`;
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays === 1) return 'ayer';
+  if (diffInDays < 7) return `hace ${diffInDays}d`;
+  
+  return lastSeenDate.toLocaleDateString('es-EC', { month: 'short', day: 'numeric' });
 };
 
 // Función para formatear timestamp de mensaje individual
@@ -76,6 +95,9 @@ function ChatPage() {
     addMessage, 
     setMessagesFromAPI 
   } = useWebSocketMessages(selectedChat?.id);
+
+  // Hook para manejar usuarios online
+  const { isUserOnline, getUserStatus } = useOnlineUsers();
 
   // Establecer usuario actual al montar el componente
   useEffect(() => {
@@ -159,6 +181,17 @@ function ChatPage() {
       }
     };
   }, [selectedChat, isConnected, messages.length, currentUserId, setMessagesFromAPI]);
+
+  // Actualizar estado online de conversaciones cuando cambie la lista de usuarios online
+  useEffect(() => {
+    setConversations(prevConversations => 
+      prevConversations.map(conv => ({
+        ...conv,
+        online: isUserOnline(conv.otherUserId),
+        lastSeen: getUserStatus(conv.otherUserId).lastSeen
+      }))
+    );
+  }, [isUserOnline, getUserStatus]); // Se ejecuta cuando cambian los usuarios online
 
   // Función para seleccionar un chat y cargar sus mensajes
   const handleSelectChat = useCallback(async (conversation) => {
@@ -331,13 +364,19 @@ function ChatPage() {
             }
           }, null, 2));
 
+          // Determinar estado online del otro usuario
+          const isOnline = isUserOnline(otherUserId);
+          const userStatus = getUserStatus(otherUserId);
+
           return {
             id: conversation.id,
             vendorName: displayName,
             vendorAvatar: avatarLetter,
             vendorImage: avatarImage, // Imagen real del usuario
             verified: otherUser?.isVerified || false,
-            online: false, // El backend no maneja estado online
+            online: isOnline,
+            lastSeen: userStatus.lastSeen,
+            otherUserId: otherUserId, // Guardar ID del otro usuario para referencia
             product: product ? {
               id: product.id,
               title: product.title,
@@ -374,7 +413,7 @@ function ChatPage() {
     } finally {
       setLoading(false);
     }
-  }, [handleSelectChat, vendorId]);
+  }, [handleSelectChat, vendorId, isUserOnline, getUserStatus]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -392,22 +431,53 @@ function ChatPage() {
       try {
         setSendingMessage(true);
         
-        // Enviar mensaje al backend
-        console.log('Enviando mensaje al backend...');
-        const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
-        console.log('Mensaje enviado:', sentMessage);
-        
-        // Crear mensaje local para UI inmediata
-        const newMessage = {
-          id: sentMessage.id,
-          text: message.trim(),
-          sender: 'me',
-          timestamp: formatMessageTimestamp(sentMessage.sentAt || sentMessage.createdAt),
-          originalData: sentMessage
-        };
-        
-        addMessage(newMessage);
-        setMessage('');
+        // Intentar enviar por WebSocket si está conectado
+        if (isConnected) {
+          console.log('Enviando mensaje por WebSocket...');
+          import('../services/websocket').then(({ websocketService }) => {
+            const success = websocketService.sendMessage(selectedChat.id, message.trim());
+            if (success) {
+              console.log('✅ Mensaje enviado por WebSocket');
+            } else {
+              console.log('⚠️ WebSocket no pudo enviar, intentando HTTP...');
+              // Si WebSocket falla, enviar por HTTP como fallback
+              sendViaHTTP();
+            }
+          });
+          
+          // Crear mensaje local optimista (se confirmará con WebSocket)
+          const optimisticMessage = {
+            id: `temp-${Date.now()}`,
+            text: message.trim(),
+            sender: 'me',
+            timestamp: formatMessageTimestamp(new Date().toISOString()),
+            pending: true
+          };
+          
+          addMessage(optimisticMessage);
+          setMessage('');
+        } else {
+          // Si no hay WebSocket, enviar por HTTP directamente
+          await sendViaHTTP();
+        }
+
+        async function sendViaHTTP() {
+          console.log('Enviando mensaje por HTTP...');
+          const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
+          console.log('Mensaje enviado por HTTP:', sentMessage);
+          
+          // Crear mensaje local para UI inmediata
+          const newMessage = {
+            id: sentMessage.id,
+            text: message.trim(),
+            sender: 'me',
+            timestamp: formatMessageTimestamp(sentMessage.sentAt || sentMessage.createdAt),
+            originalData: sentMessage
+          };
+          
+          addMessage(newMessage);
+          setMessage('');
+        }
 
         // Scroll al final después de agregar el mensaje
         setTimeout(() => {
@@ -581,7 +651,7 @@ function ChatPage() {
                             {conv.vendorAvatar}
                           </div>
                         )}
-                        {conv.online && (
+                        {isUserOnline(conv.otherUserId) && (
                           <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                         )}
                       </div>
@@ -636,15 +706,15 @@ function ChatPage() {
                           <span>Reconectando... ({reconnectStatus.attempts}/{reconnectStatus.maxAttempts})</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1 text-orange-600 text-xs">
+                        <div className="flex items-center gap-1 text-green-600 text-xs">
                           <FiWifiOff className="text-sm" />
-                          <span>Modo HTTP (funciona normalmente)</span>
+                          <span>Modo HTTP (funciona correctamente)</span>
                         </div>
                       )}
                     </div>
-                    {wsError && (
-                      <div className="text-xs text-orange-500 truncate max-w-xs" title={wsError.message}>
-                        WebSocket no disponible
+                    {wsError && reconnectStatus.attempts >= 3 && (
+                      <div className="text-xs text-blue-500 truncate max-w-xs" title="Para habilitar tiempo real, implementa servidor WebSocket en el backend">
+                        💡 Servidor WebSocket no configurado
                       </div>
                     )}
                     
@@ -663,11 +733,8 @@ function ChatPage() {
                             createdAt: new Date().toISOString()
                           };
                           console.log('🧪 Simulando mensaje WebSocket:', testMessage);
-                          import('../services/websocket').then(({ default: webSocketService }) => {
-                            webSocketService.handleMessage({
-                              type: 'message',
-                              payload: testMessage
-                            });
+                          import('../services/websocket').then(({ websocketService }) => {
+                            websocketService.simulateMessage(testMessage);
                           });
                         }}
                         className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
@@ -697,7 +764,7 @@ function ChatPage() {
                           {selectedChat.vendorAvatar}
                         </div>
                       )}
-                      {selectedChat.online && (
+                      {isUserOnline(selectedChat.otherUserId) && (
                         <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
                       )}
                     </div>
@@ -706,8 +773,15 @@ function ChatPage() {
                         <h2 className="font-bold text-gray-900">{selectedChat.vendorName}</h2>
                         {selectedChat.verified && <MdVerified className="text-blue-500" />}
                       </div>
-                      <p className="text-xs text-green-600 font-semibold">
-                        {selectedChat.online ? 'En línea' : 'Desconectado'}
+                      <p className={`text-xs font-semibold ${
+                        isUserOnline(selectedChat.otherUserId) ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        {isUserOnline(selectedChat.otherUserId) 
+                          ? 'En línea' 
+                          : selectedChat.lastSeen 
+                            ? `Visto ${formatLastSeen(selectedChat.lastSeen)}`
+                            : 'Desconectado'
+                        }
                       </p>
                     </div>
                   </div>
