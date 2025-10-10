@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, productAPI } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiEye, FiEdit, FiTrash2, FiPlus, FiAlertCircle } from 'react-icons/fi';
 
@@ -9,47 +9,49 @@ function MisProductosPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authAPI.isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
+    const loadMyProducts = async () => {
+      try {
+        // Verificar autenticación
+        if (!authAPI.isAuthenticated()) {
+          navigate('/login');
+          return;
+        }
 
-    // Simulación de productos del usuario
-    setTimeout(() => {
-      setProductos([
-        {
-          id: 1,
-          nombre: 'iPhone 13 Pro',
-          precio: 450,
-          estado: 'Activo',
-          visitas: 23,
-          imagen: '📱',
-          categoria: 'Tecnología',
-          fecha: '2024-01-15'
-        },
-        {
-          id: 2,
-          nombre: 'Bicicleta de montaña',
-          precio: 280,
-          estado: 'Activo',
-          visitas: 12,
-          imagen: '🚴',
-          categoria: 'Deportes',
-          fecha: '2024-01-10'
-        },
-        {
-          id: 3,
-          nombre: 'MacBook Air M2',
-          precio: 950,
-          estado: 'Vendido',
-          visitas: 45,
-          imagen: '💻',
-          categoria: 'Tecnología',
-          fecha: '2024-01-05'
-        },
-      ]);
-      setLoading(false);
-    }, 500);
+        // Obtener productos del usuario
+        const response = await productAPI.getMyProducts();
+        
+        // Mapear productos del backend al formato del frontend
+        const mappedProducts = response.map(product => ({
+          id: product.id,
+          nombre: product.title,
+          precio: product.price,
+          estado: product.status === 'active' ? 'Activo' : 
+                 product.status === 'sold' ? 'Vendido' : 
+                 product.status === 'reserved' ? 'Reservado' : 'Inactivo',
+          visitas: 0, // El backend no tiene este campo aún
+          imagen: product.ProductPhotos && product.ProductPhotos.length > 0 
+            ? product.ProductPhotos[0].url 
+            : "📦", // Emoji por defecto si no hay imagen
+          categoria: product.Category ? product.Category.name : 'Sin categoría',
+          fecha: product.createdAt || new Date().toISOString()
+        }));
+
+        setProductos(mappedProducts);
+      } catch (error) {
+        console.error('Error cargando productos:', error);
+        // Si hay error de autenticación, redirigir al login
+        if (error.response?.status === 401) {
+          navigate('/login');
+        } else {
+          // Para otros errores, mostrar productos vacíos
+          setProductos([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMyProducts();
   }, [navigate]);
 
   const handleEliminar = (id, nombre) => {
@@ -102,8 +104,21 @@ function MisProductosPage() {
               <div key={producto.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all">
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Imagen del producto */}
-                  <div className="w-full md:w-32 h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center text-6xl flex-shrink-0">
-                    {producto.imagen}
+                  <div className="w-full md:w-32 h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {producto.imagen && producto.imagen.startsWith('http') ? (
+                      <img 
+                        src={producto.imagen} 
+                        alt={producto.nombre}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full flex items-center justify-center text-6xl ${producto.imagen && producto.imagen.startsWith('http') ? 'hidden' : ''}`}>
+                      {producto.imagen && producto.imagen.startsWith('http') ? '📦' : producto.imagen}
+                    </div>
                   </div>
 
                   {/* Información del producto */}
