@@ -168,6 +168,11 @@ export const userAPI = {
     return response.data;
   },
 
+  getUserById: async (userId) => {
+    const response = await api.get(`/users/${userId}`);
+    return response.data;
+  },
+
   updateProfile: async (userId, userData) => {
     const response = await api.put(`/users/${userId}`, userData);
     
@@ -299,6 +304,11 @@ export const productAPI = {
 
   getMyProducts: async () => {
     const response = await api.get('/products/my');
+    return response.data;
+  },
+
+  getProductById: async (productId) => {
+    const response = await api.get(`/products/${productId}`);
     return response.data;
   },
 
