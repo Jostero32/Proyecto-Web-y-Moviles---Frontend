@@ -3,6 +3,7 @@ import Cookies from 'js-cookie';
 
 // URL base del backend
 const API_BASE_URL = 'http://localhost:8080';
+export { API_BASE_URL };
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
@@ -240,6 +241,33 @@ export const productAPI = {
 
   create: async (productData) => {
     const response = await api.post('/products', productData);
+    return response.data;
+  },
+
+  createWithPhotos: async (productData, photos) => {
+    const formData = new FormData();
+    
+    // Agregar datos del producto
+    formData.append('title', productData.title);
+    formData.append('description', productData.description);
+    formData.append('price', productData.price);
+    formData.append('categoryId', productData.categoryId);
+    formData.append('location', productData.location || '');
+    formData.append('locationCoords', JSON.stringify(productData.locationCoords || {}));
+    formData.append('status', 'active');
+    
+    // Agregar fotos
+    if (photos && photos.length > 0) {
+      photos.forEach((photo) => {
+        formData.append('photos', photo);
+      });
+    }
+    
+    const response = await api.post('/products', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
 

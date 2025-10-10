@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authAPI, productAPI } from '../services/api';
+import { authAPI, productAPI, API_BASE_URL } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiEye, FiEdit, FiTrash2, FiPlus, FiAlertCircle } from 'react-icons/fi';
 
@@ -19,6 +19,7 @@ function MisProductosPage() {
 
         // Obtener productos del usuario
         const response = await productAPI.getMyProducts();
+        console.log('Productos del backend:', response); // Debug temporal
         
         // Mapear productos del backend al formato del frontend
         const mappedProducts = response.map(product => ({
@@ -30,7 +31,9 @@ function MisProductosPage() {
                  product.status === 'reserved' ? 'Reservado' : 'Inactivo',
           visitas: 0, // El backend no tiene este campo aún
           imagen: product.ProductPhotos && product.ProductPhotos.length > 0 
-            ? product.ProductPhotos[0].url 
+            ? (product.ProductPhotos[0].url.startsWith('http') 
+               ? product.ProductPhotos[0].url 
+               : `${API_BASE_URL}${product.ProductPhotos[0].url}`)
             : "📦", // Emoji por defecto si no hay imagen
           categoria: product.Category ? product.Category.name : 'Sin categoría',
           fecha: product.createdAt || new Date().toISOString()

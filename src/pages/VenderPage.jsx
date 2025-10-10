@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUpload, FiDollarSign, FiMapPin, FiTag } from 'react-icons/fi';
 import LocationPicker from '../components/common/LocationPicker';
-import { categoriesData, getSubcategories } from '../data/categories';
+import { categoriesData } from '../data/categories';
+import { productAPI, categoryAPI, authAPI } from '../services/api';
 
 function VenderPage() {
   const navigate = useNavigate();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [backendCategories, setBackendCategories] = useState([]);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -18,6 +22,37 @@ function VenderPage() {
     condition: 'usado',
     images: []
   });
+
+  // Verificar autenticación y cargar categorías
+  useEffect(() => {
+    const checkAuthAndLoadData = async () => {
+      try {
+        // Verificar autenticación
+        if (!authAPI.isAuthenticated()) {
+          navigate('/login');
+          return;
+        }
+
+        // Cargar categorías del backend (opcional para mapear con el frontend)
+        const categories = await categoryAPI.getAll();
+        setBackendCategories(categories);
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+        if (error.response?.status === 401) {
+          navigate('/login');
+        }
+      }
+    };
+
+    checkAuthAndLoadData();
+  }, [navigate]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+    setTimeout(() => {
+      setNotification({ show: false, type: '', message: '' });
+    }, 5000);
+  };
 
   const handleCategoryChange = (categoryValue) => {
     setFormData({
@@ -35,11 +70,100 @@ function VenderPage() {
     });
   };
 
-  const handleSubmit = (e) => {
+  // Mapear categoría del frontend al ID del backend
+  const getCategoryId = (categoryValue) => {
+    // Primero intentar encontrar en las categorías del backend
+    const selectedFrontendCategory = categoriesData.find(cat => cat.value === categoryValue);
+    if (selectedFrontendCategory && backendCategories.length > 0) {
+      // Buscar por nombre similar en el backend
+      const backendCategory = backendCategories.find(cat => 
+        cat.name.toLowerCase().includes(selectedFrontendCategory.label.toLowerCase()) ||
+        selectedFrontendCategory.label.toLowerCase().includes(cat.name.toLowerCase())
+      );
+      if (backendCategory) {
+        return backendCategory.id;
+      }
+    }
+    
+    // Mapeo manual como fallback
+    const categoryMapping = {
+      'tecnologia': 1,
+      'hogar': 2, 
+      'moda': 3,
+      'deportes': 4,
+      'entretenimiento': 5,
+      'vehiculos': 6
+    };
+    return categoryMapping[categoryValue] || 1; // Default a tecnología
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Producto a publicar:', formData);
-    alert('¡Producto publicado exitosamente! 🎉');
-    navigate('/productos');
+    
+    // Validaciones básicas
+    if (!formData.title.trim()) {
+      showNotification('error', 'Por favor ingresa un título para tu producto');
+      return;
+    }
+    if (!formData.description.trim()) {
+      showNotification('error', 'Por favor ingresa una descripción para tu producto');
+      return;
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      showNotification('error', 'Por favor ingresa un precio válido mayor a 0');
+      return;
+    }
+    if (!formData.category) {
+      showNotification('error', 'Por favor selecciona una categoría');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const productData = {
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        categoryId: getCategoryId(formData.category),
+        location: formData.location || '',
+        locationCoords: formData.locationCoords || {}
+      };
+
+      const result = await productAPI.createWithPhotos(productData, formData.images);
+      console.log('Producto creado:', result);
+      
+      showNotification('success', '¡Producto publicado exitosamente! 🎉');
+      
+      // Limpiar formulario
+      setFormData({
+        title: '',
+        description: '',
+        price: '',
+        category: '',
+        subcategory: '',
+        location: '',
+        locationCoords: null,
+        condition: 'usado',
+        images: []
+      });
+      
+      // Redirigir después de 2 segundos para que se vea la notificación
+      setTimeout(() => {
+        navigate('/mis-productos');
+      }, 2000);
+    } catch (error) {
+      console.error('Error al crear producto:', error);
+      
+      if (error.response?.status === 401) {
+        navigate('/login');
+      } else {
+        const errorMsg = error.response?.data?.message || 'Error al publicar el producto. Intenta de nuevo.';
+        showNotification('error', errorMsg);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImageUpload = (e) => {
@@ -257,6 +381,41 @@ function VenderPage() {
                 </p>
               )}
             </div>
+            
+            {/* Vista previa de imágenes */}
+            {formData.images.length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-md font-semibold text-gray-800 mb-3">Vista previa:</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {formData.images.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                        <img
+                          src={URL.createObjectURL(image)}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = formData.images.filter((_, i) => i !== index);
+                          setFormData({ ...formData, images: newImages });
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        ×
+                      </button>
+                      {index === 0 && (
+                        <div className="absolute bottom-1 left-1 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                          Principal
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Botones */}
@@ -270,10 +429,13 @@ function VenderPage() {
             </button>
             <button
               type="submit"
-              className="flex-1 px-8 py-4 text-white rounded-xl font-bold hover:opacity-90 transition-opacity shadow-lg"
+              disabled={loading}
+              className={`flex-1 px-8 py-4 text-white rounded-xl font-bold transition-opacity shadow-lg ${
+                loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+              }`}
               style={{ backgroundColor: '#CF5C36' }}
             >
-              Publicar producto
+              {loading ? 'Publicando...' : 'Publicar producto'}
             </button>
           </div>
         </form>
@@ -297,6 +459,32 @@ function VenderPage() {
           onClose={() => setShowLocationPicker(false)}
           initialPosition={formData.locationCoords}
         />
+      )}
+
+      {/* Notificación */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 max-w-md animate-slide-in">
+          <div className={`rounded-lg shadow-lg p-4 border-l-4 ${
+            notification.type === 'success' 
+              ? 'bg-green-50 border-green-500 text-green-800' 
+              : 'bg-red-50 border-red-500 text-red-800'
+          }`}>
+            <div className="flex items-center">
+              <span className={`mr-2 ${
+                notification.type === 'success' ? 'text-green-500' : 'text-red-500'
+              }`}>
+                {notification.type === 'success' ? '✅' : '❌'}
+              </span>
+              <span className="font-medium">{notification.message}</span>
+              <button
+                onClick={() => setNotification({ show: false, type: '', message: '' })}
+                className="ml-auto text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
