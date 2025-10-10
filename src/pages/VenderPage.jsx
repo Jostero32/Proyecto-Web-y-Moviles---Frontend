@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUpload, FiDollarSign, FiMapPin, FiTag } from 'react-icons/fi';
 import LocationPicker from '../components/common/LocationPicker';
-import { categoriesData, getSubcategories } from '../data/categories';
+
+import { productAPI, categoryAPI, authAPI } from '../services/api';
 
 function VenderPage() {
   const navigate = useNavigate();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [backendCategories, setBackendCategories] = useState([]);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -15,14 +19,44 @@ function VenderPage() {
     subcategory: '',
     location: '',
     locationCoords: null,
-    condition: 'usado',
     images: []
   });
+
+  // Verificar autenticación y cargar categorías
+  useEffect(() => {
+    const checkAuthAndLoadData = async () => {
+      try {
+        // Verificar autenticación
+        if (!authAPI.isAuthenticated()) {
+          navigate('/login');
+          return;
+        }
+
+        // Cargar categorías del backend con subcategorías
+        const categories = await categoryAPI.getMain();
+        setBackendCategories(categories);
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+        if (error.response?.status === 401) {
+          navigate('/login');
+        }
+      }
+    };
+
+    checkAuthAndLoadData();
+  }, [navigate]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+    setTimeout(() => {
+      setNotification({ show: false, type: '', message: '' });
+    }, 5000);
+  };
 
   const handleCategoryChange = (categoryValue) => {
     setFormData({
       ...formData,
-      category: categoryValue,
+      category: parseInt(categoryValue), // Convertir a integer desde el inicio
       subcategory: '' // Reset subcategory cuando cambia la categoría
     });
   };
@@ -35,11 +69,105 @@ function VenderPage() {
     });
   };
 
-  const handleSubmit = (e) => {
+
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Producto a publicar:', formData);
-    alert('¡Producto publicado exitosamente! 🎉');
-    navigate('/productos');
+    
+    // Validaciones básicas
+    if (!formData.title.trim()) {
+      showNotification('error', 'Por favor ingresa un título para tu producto');
+      return;
+    }
+    // Descripción es opcional, no necesita validación
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      showNotification('error', 'Por favor ingresa un precio válido mayor a 0');
+      return;
+    }
+    if (!formData.category) {
+      showNotification('error', 'Por favor selecciona una categoría');
+      return;
+    }
+    
+    // Si la categoría seleccionada tiene subcategorías, debe elegirse una subcategoría
+    const selectedCategory = backendCategories.find(cat => cat.id === formData.category);
+    if (selectedCategory?.subcategories?.length > 0 && !formData.subcategory) {
+      showNotification('error', 'Por favor selecciona una subcategoría');
+      return;
+    }
+    if (formData.images.length === 0) {
+      showNotification('error', 'Por favor agrega al menos una imagen de tu producto');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      // Preparar datos del producto en el formato exacto esperado por el backend
+      const productData = {
+        // No enviamos sellerId - el backend lo obtiene del token
+        title: formData.title.trim(),
+        description: formData.description.trim() || '',
+        location: formData.location ? 
+          (typeof formData.location === 'string' ? formData.location : 
+           `${formData.location.state || ''}, ${formData.location.city || ''}, ${formData.location.neighborhood || ''}`.replace(/^, |, $|, , /g, '')) 
+          : '',
+        locationCoords: JSON.stringify({
+          lat: formData.locationCoords?.lat || null,
+          lng: formData.locationCoords?.lng || null
+        }), // Backend espera string JSON, no objeto
+        price: parseFloat(formData.price),
+        categoryId: formData.subcategory || formData.category, // Ya son integers
+        status: 'active'
+      };
+
+      // Validación adicional antes de enviar
+      if (!productData.categoryId || isNaN(productData.categoryId)) {
+        showNotification('error', 'Error: Categoría inválida');
+        return;
+      }
+      if (!productData.price || isNaN(productData.price) || productData.price <= 0) {
+        showNotification('error', 'Error: Precio inválido');
+        return;
+      }
+      if (!productData.title || productData.title.length < 3) {
+        showNotification('error', 'Error: Título debe tener al menos 3 caracteres');
+        return;
+      }
+      
+      const result = await productAPI.createWithPhotos(productData, formData.images);
+      console.log('Producto creado:', result);
+      
+      showNotification('success', '¡Producto publicado exitosamente! 🎉');
+      
+      // Limpiar formulario
+      setFormData({
+        title: '',
+        description: '',
+        price: '',
+        category: '',
+        subcategory: '',
+        location: '',
+        locationCoords: null,
+        images: []
+      });
+      
+      // Redirigir después de 2 segundos para que se vea la notificación
+      setTimeout(() => {
+        navigate('/mis-productos');
+      }, 2000);
+    } catch (error) {
+      console.error('Error al crear producto:', error);
+      
+      if (error.response?.status === 401) {
+        navigate('/login');
+      } else {
+        const errorMsg = error.response?.data?.message || 'Error al publicar el producto. Intenta de nuevo.';
+        showNotification('error', errorMsg);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImageUpload = (e) => {
@@ -47,7 +175,7 @@ function VenderPage() {
     setFormData({ ...formData, images: [...formData.images, ...files] });
   };
 
-  const selectedCategoryData = categoriesData.find(cat => cat.value === formData.category);
+  const selectedCategoryData = backendCategories.find(cat => parseInt(cat.id) === parseInt(formData.category));
   const subcategories = selectedCategoryData ? selectedCategoryData.subcategories : [];
 
   return (
@@ -71,19 +199,19 @@ function VenderPage() {
               Categoría *
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {categoriesData.map((cat) => (
+              {backendCategories.map((cat) => (
                 <button
-                  key={cat.value}
+                  key={cat.id}
                   type="button"
-                  onClick={() => handleCategoryChange(cat.value)}
+                  onClick={() => handleCategoryChange(cat.id)}
                   className={`p-4 rounded-xl border-2 transition-all ${
-                    formData.category === cat.value
+                    formData.category === parseInt(cat.id)
                       ? 'border-orange-500 bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <cat.icon className="text-3xl mx-auto mb-2" style={{ color: cat.color }} />
-                  <span className="text-sm font-semibold">{cat.label}</span>
+                  <FiTag className="text-3xl mx-auto mb-2 text-orange-500" />
+                  <span className="text-sm font-semibold">{cat.name}</span>
                 </button>
               ))}
             </div>
@@ -103,16 +231,16 @@ function VenderPage() {
                 <div className="flex flex-wrap gap-3">
                   {subcategories.map((sub) => (
                     <button
-                      key={sub.value}
+                      key={sub.id}
                       type="button"
-                      onClick={() => setFormData({ ...formData, subcategory: sub.value })}
+                      onClick={() => setFormData({ ...formData, subcategory: parseInt(sub.id) })}
                       className={`px-5 py-3 rounded-xl text-sm font-semibold transition-all ${
-                        formData.subcategory === sub.value
+                        formData.subcategory === parseInt(sub.id)
                           ? 'bg-orange-500 text-white shadow-lg transform scale-105'
                           : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:shadow-md'
                       }`}
                     >
-                      {sub.label}
+                      {sub.name}
                     </button>
                   ))}
                 </div>
@@ -144,10 +272,9 @@ function VenderPage() {
           {/* Descripción */}
           <div className="mb-6">
             <label className="block text-lg font-bold text-gray-900 mb-2">
-              Descripción *
+              Descripción
             </label>
             <textarea
-              required
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe tu producto, incluye detalles importantes..."
@@ -156,40 +283,21 @@ function VenderPage() {
             />
           </div>
 
-          {/* Precio y Condición */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-lg font-bold text-gray-900 mb-2">
-                Precio (USD) *
-              </label>
-              <div className="relative">
-                <FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="number"
-                  required
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-lg font-bold text-gray-900 mb-2">
-                Condición *
-              </label>
-              <select
+          {/* Precio */}
+          <div className="mb-6">
+            <label className="block text-lg font-bold text-gray-900 mb-2">
+              Precio (USD) *
+            </label>
+            <div className="relative">
+              <FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="number"
                 required
-                value={formData.condition}
-                onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
-              >
-                <option value="nuevo">Nuevo</option>
-                <option value="usado">Usado - Como nuevo</option>
-                <option value="usado-bueno">Usado - Buen estado</option>
-                <option value="usado-regular">Usado - Estado regular</option>
-              </select>
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                placeholder="0.00"
+                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
+              />
             </div>
           </div>
 
@@ -257,6 +365,41 @@ function VenderPage() {
                 </p>
               )}
             </div>
+            
+            {/* Vista previa de imágenes */}
+            {formData.images.length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-md font-semibold text-gray-800 mb-3">Vista previa:</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {formData.images.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                        <img
+                          src={URL.createObjectURL(image)}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = formData.images.filter((_, i) => i !== index);
+                          setFormData({ ...formData, images: newImages });
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        ×
+                      </button>
+                      {index === 0 && (
+                        <div className="absolute bottom-1 left-1 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                          Principal
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Botones */}
@@ -270,10 +413,13 @@ function VenderPage() {
             </button>
             <button
               type="submit"
-              className="flex-1 px-8 py-4 text-white rounded-xl font-bold hover:opacity-90 transition-opacity shadow-lg"
+              disabled={loading}
+              className={`flex-1 px-8 py-4 text-white rounded-xl font-bold transition-opacity shadow-lg ${
+                loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+              }`}
               style={{ backgroundColor: '#CF5C36' }}
             >
-              Publicar producto
+              {loading ? 'Publicando...' : 'Publicar producto'}
             </button>
           </div>
         </form>
@@ -297,6 +443,32 @@ function VenderPage() {
           onClose={() => setShowLocationPicker(false)}
           initialPosition={formData.locationCoords}
         />
+      )}
+
+      {/* Notificación */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 max-w-md animate-slide-in">
+          <div className={`rounded-lg shadow-lg p-4 border-l-4 ${
+            notification.type === 'success' 
+              ? 'bg-green-50 border-green-500 text-green-800' 
+              : 'bg-red-50 border-red-500 text-red-800'
+          }`}>
+            <div className="flex items-center">
+              <span className={`mr-2 ${
+                notification.type === 'success' ? 'text-green-500' : 'text-red-500'
+              }`}>
+                {notification.type === 'success' ? '✅' : '❌'}
+              </span>
+              <span className="font-medium">{notification.message}</span>
+              <button
+                onClick={() => setNotification({ show: false, type: '', message: '' })}
+                className="ml-auto text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,13 +3,11 @@ import Cookies from 'js-cookie';
 
 // URL base del backend
 const API_BASE_URL = 'http://localhost:8080';
+export { API_BASE_URL };
 
 // Crear instancia de axios con configuración base
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   timeout: 30000, // 30 segundos de timeout (aumentado para manejar imágenes)
 });
 
@@ -40,6 +38,9 @@ const cookieUtils = {
       secure: window.location.protocol === 'https:',
       sameSite: 'strict'
     });
+    
+    // Disparar evento personalizado para notificar cambios en datos de usuario
+    window.dispatchEvent(new CustomEvent('userDataUpdated', { detail: userData }));
   },
   
   getUserData: () => {
@@ -71,6 +72,12 @@ api.interceptors.request.use(
       // Renovar expiración en cada request (sliding expiration)
       cookieUtils.refreshSession();
     }
+    
+    // Establecer Content-Type solo si no es FormData
+    if (!config.data || !(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -83,10 +90,19 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Token expirado o inválido
+      // Token expirado o inválido - limpiar datos de sesión
       cookieUtils.removeAuthToken();
       cookieUtils.removeUserData();
-      window.location.href = '/login';
+      
+      // Solo redirigir al login si estamos en páginas que requieren autenticación
+      const currentPath = window.location.pathname;
+      const protectedPaths = ['/vender', '/mi-perfil', '/mis-productos', '/notificaciones', '/favoritos', '/chat'];
+      
+      if (protectedPaths.some(path => currentPath.startsWith(path))) {
+        window.location.href = '/login';
+      }
+      
+      // Para otras páginas, simplemente propagamos el error sin redirigir
     }
     return Promise.reject(error);
   }
@@ -132,6 +148,11 @@ export const authAPI = {
   // Función auxiliar para verificar si el usuario está logueado
   isAuthenticated: () => {
     return !!cookieUtils.getAuthToken();
+  },
+
+  // Función auxiliar para obtener el token de autenticación
+  getAuthToken: () => {
+    return cookieUtils.getAuthToken();
   }
 };
 
@@ -147,9 +168,70 @@ export const userAPI = {
     return response.data;
   },
 
-  updateProfile: async (userData) => {
-    const response = await api.put('/users/profile', userData);
+  getUserById: async (userId) => {
+    const response = await api.get(`/users/${userId}`);
     return response.data;
+  },
+
+  updateProfile: async (userId, userData) => {
+    const response = await api.put(`/users/${userId}`, userData);
+    
+    // Actualizar datos del usuario en las cookies después de una actualización exitosa
+    if (response.data && response.data.user) {
+      const currentUserData = cookieUtils.getUserData() || {};
+      const updatedUserData = {
+        ...currentUserData,
+        ...response.data.user
+      };
+      cookieUtils.setUserData(updatedUserData);
+    }
+    
+    return response.data;
+  },
+
+  updateAvatar: async (userId, avatarFile) => {
+    const formData = new FormData();
+    formData.append('avatar', avatarFile);
+    
+    const response = await api.put(`/users/${userId}/avatar`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    // Actualizar avatar URL en las cookies después de una actualización exitosa
+    if (response.data && response.data.avatarUrl) {
+      const currentUserData = cookieUtils.getUserData() || {};
+      const updatedUserData = {
+        ...currentUserData,
+        avatarUrl: response.data.avatarUrl
+      };
+      cookieUtils.setUserData(updatedUserData);
+    }
+    
+    return response.data;
+  },
+
+  changePassword: async (passwordData) => {
+    const response = await api.put('/users/password', {
+      oldPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword
+    });
+    return response.data;
+  },
+
+  // Función para refrescar datos del usuario actual
+  refreshUserData: async () => {
+    try {
+      const currentUser = await userAPI.getCurrentUser();
+      if (currentUser) {
+        cookieUtils.setUserData(currentUser);
+        return currentUser;
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+    return null;
   }
 };
 
@@ -167,6 +249,165 @@ export const productAPI = {
 
   create: async (productData) => {
     const response = await api.post('/products', productData);
+    return response.data;
+  },
+
+  createWithPhotos: async (productData, photos) => {
+    // Preparar datos en el formato exacto esperado por el backend
+    const productPayload = {
+      // No incluir sellerId - el backend lo obtiene del token
+      title: productData.title,
+      description: productData.description || '',
+      location: productData.location || '',
+      locationCoords: productData.locationCoords, // Ya viene como string JSON
+      price: parseFloat(productData.price),
+      categoryId: productData.categoryId, // Ya viene como integer
+      status: productData.status || 'active'
+    };
+
+    // Si hay fotos, usar FormData
+    if (photos && photos.length > 0) {
+      const formData = new FormData();
+      
+      // Enviar cada campo del producto por separado (no como JSON)
+      formData.append('title', productPayload.title);
+      formData.append('description', productPayload.description);
+      formData.append('location', productPayload.location);
+      formData.append('locationCoords', productPayload.locationCoords);
+      formData.append('price', productPayload.price);
+      formData.append('categoryId', productPayload.categoryId);
+      formData.append('status', productPayload.status);
+      
+      // Agregar fotos
+      photos.forEach((photo) => {
+        formData.append('photos', photo);
+      });
+
+      try {
+        const response = await api.post('/products', formData);
+        return response.data;
+      } catch (error) {
+        console.error('Error al crear producto con fotos:', error);
+        throw error;
+      }
+    } else {
+      // Sin fotos, enviar como JSON puro
+      try {
+        const response = await api.post('/products', productPayload);
+        return response.data;
+      } catch (error) {
+        console.error('Error al crear producto sin fotos:', error);
+        throw error;
+      }
+    }
+  },
+
+  getMyProducts: async () => {
+    const response = await api.get('/products/my');
+    return response.data;
+  },
+
+  getProductById: async (productId) => {
+    const response = await api.get(`/products/${productId}`);
+    return response.data;
+  },
+
+  updateProduct: async (productId, productData, photos = null) => {
+    const formData = new FormData();
+    
+    // Agregar datos del producto
+    if (productData.title) formData.append('title', productData.title);
+    if (productData.description) formData.append('description', productData.description);
+    if (productData.price) formData.append('price', productData.price);
+    if (productData.categoryId) formData.append('categoryId', productData.categoryId);
+    if (productData.location) formData.append('location', productData.location);
+    formData.append('locationCoords', JSON.stringify(productData.locationCoords || { lat: null, lng: null }));
+    if (productData.status) formData.append('status', productData.status);
+    
+    // Agregar fotos si se proporcionaron
+    if (photos && photos.length > 0) {
+      photos.forEach((photo) => {
+        formData.append('photos', photo);
+      });
+    }
+    
+    const response = await api.put(`/products/${productId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteProduct: async (productId) => {
+    const response = await api.delete(`/products/${productId}`);
+    return response.data;
+  }
+};
+
+// Funciones para categorías
+export const categoryAPI = {
+  getAll: async () => {
+    const response = await api.get('/categories');
+    return response.data;
+  },
+
+  getMain: async () => {
+    const response = await api.get('/categories/main');
+    return response.data;
+  }
+};
+
+// Notificaciones ahora van por WebSockets - REST eliminado
+
+// API para Conversaciones
+export const conversationAPI = {
+  // Obtener todas las conversaciones del usuario
+  getMyConversations: async () => {
+    const response = await api.get('/conversations');
+    return response.data;
+  },
+
+  // Crear una nueva conversación
+  createConversation: async (productId, sellerId) => {
+    const response = await api.post('/conversations', {
+      productId,
+      sellerId
+    });
+    return response.data;
+  },
+
+  // Obtener mensajes de una conversación específica
+  getConversationMessages: async (conversationId) => {
+    const response = await api.get(`/messages/?conversationId=${conversationId}`);
+    return response.data;
+  }
+};
+
+// API para Mensajes
+export const messageAPI = {
+  // Enviar un mensaje en una conversación
+  sendMessage: async (conversationId, content) => {
+    const payload = {
+      conversationId: parseInt(conversationId), // Asegurar que sea número
+      content: content.toString() // Asegurar que sea string
+    };
+    
+    console.log('Enviando mensaje con datos:', JSON.stringify(payload, null, 2));
+    console.log('Tipos de datos:', {
+      conversationId: typeof payload.conversationId,
+      content: typeof payload.content,
+      conversationIdValue: payload.conversationId,
+      contentValue: payload.content
+    });
+    
+    const response = await api.post('/messages', payload);
+    return response.data;
+  },
+
+  // Obtener mensajes de una conversación
+  getMessages: async (conversationId) => {
+    const response = await api.get(`/messages/?conversationId=${conversationId}`);
     return response.data;
   }
 };

@@ -1,111 +1,104 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight, FiNavigation, FiTag, FiChevronDown
+  FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight
 } from 'react-icons/fi';
-import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
-import LocationPicker from '../components/common/LocationPicker';
-import { categoriesData, getSubcategories } from '../data/categories';
+import { productAPI, categoryAPI } from '../services/api';
+import Header from '../components/common/Header';
+import Footer from '../components/common/Footer';
 
 function ProductosPage() {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('Todos');
+  const [selectedCategory, setSelectedCategory] = useState('todos');
   const [priceRange, setPriceRange] = useState('Todos');
   const [location, setLocation] = useState('Todos');
   const [showFilters, setShowFilters] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
-  const [searchRadius, setSearchRadius] = useState(10); // km por defecto
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Cargar el término de búsqueda desde los parámetros de URL
   useEffect(() => {
     const searchFromUrl = searchParams.get('search');
     const categoryFromUrl = searchParams.get('category');
-    const subcategoryFromUrl = searchParams.get('subcategory');
+    const categoryIdFromUrl = searchParams.get('categoryId');
 
     if (searchFromUrl) {
       setSearchTerm(searchFromUrl);
     }
 
-    if (categoryFromUrl) {
-      // Encontrar la categoría por su value
-      const categoryData = categoriesData.find(cat => cat.value === categoryFromUrl);
-      if (categoryData) {
-        setSelectedCategory(categoryData.label);
-      }
-    }
-
-    if (subcategoryFromUrl) {
-      setSelectedSubcategory(subcategoryFromUrl);
+    // Priorizar categoryId sobre category
+    if (categoryIdFromUrl) {
+      setSelectedCategory(categoryIdFromUrl);
+    } else if (categoryFromUrl) {
+      setSelectedCategory(categoryFromUrl);
     }
   }, [searchParams]);
 
-  const categories = ['Todos', ...categoriesData.map(cat => cat.label)];
+  // Cargar productos y categorías del backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [productsData, categoriesData] = await Promise.all([
+          productAPI.getAll(),
+          categoryAPI.getMain()
+        ]);
+        
+        setProducts(productsData);
+        
+        // Crear lista plana de categorías y subcategorías para el filtro
+        const flatCategories = [
+          { id: 'todos', name: 'Todos' }
+        ];
+        
+        categoriesData.forEach(cat => {
+          flatCategories.push({ id: cat.id, name: cat.name, type: 'category' });
+          if (cat.subcategories) {
+            cat.subcategories.forEach(sub => {
+              flatCategories.push({ id: sub.id, name: `${cat.name} > ${sub.name}`, type: 'subcategory' });
+            });
+          }
+        });
+        
+        setCategories(flatCategories);
+        
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const priceRanges = ['Todos', '0-100', '100-500', '500-1000', '1000+'];
   const locations = ['Todos', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja'];
 
-  // Obtener subcategorías de la categoría seleccionada
-  const selectedCategoryData = categoriesData.find(cat => cat.label === selectedCategory);
-  const subcategories = selectedCategoryData ? selectedCategoryData.subcategories : [];
-
-  const allProducts = [
-    { id: 1, image: '📱', title: 'iPhone 14 Pro Max 128GB', price: 890, location: 'Quito Centro', category: 'Tecnología', subcategory: 'celulares', isNew: true, verified: true, coords: { lat: -0.1807, lng: -78.4678 } },
-    { id: 2, image: '🛋️', title: 'Mueble de sala esquinero moderno', price: 250, location: 'Guayaquil Norte', category: 'Casa y Hogar', isNew: false, verified: true, coords: { lat: -2.1709, lng: -79.9224 } },
-    { id: 3, image: '🚲', title: 'Bicicleta de montaña Trek X-Caliber', price: 420, location: 'Cuenca', category: 'Deportes', isNew: false, verified: false, coords: { lat: -2.9001, lng: -79.0059 } },
-    { id: 4, image: '⌚', title: 'Apple Watch Series 9 GPS', price: 320, location: 'Ambato', category: 'Tecnología', isNew: true, verified: true, coords: { lat: -1.2490, lng: -78.6167 } },
-    { id: 5, image: '📷', title: 'Cámara Canon EOS R6', price: 1200, location: 'Manta', category: 'Tecnología', isNew: false, verified: true, coords: { lat: -0.9621, lng: -80.7085 } },
-    { id: 6, image: '🎧', title: 'AirPods Pro 2da Gen', price: 180, location: 'Loja', category: 'Tecnología', isNew: true, verified: true, coords: { lat: -3.9933, lng: -79.2042 } },
-    { id: 7, image: '💻', title: 'MacBook Air M2', price: 950, location: 'Quito Norte', category: 'Tecnología', isNew: false, verified: true, coords: { lat: -0.1500, lng: -78.4678 } },
-    { id: 8, image: '🎮', title: 'PlayStation 5 Digital', price: 480, location: 'Guayaquil', category: 'Gaming', isNew: false, verified: false, coords: { lat: -2.1894, lng: -79.8883 } },
-    { id: 9, image: '👕', title: 'Chaqueta North Face', price: 95, location: 'Cuenca', category: 'Ropa y Moda', isNew: true, verified: true, coords: { lat: -2.9001, lng: -79.0059 } },
-    { id: 10, image: '🚗', title: 'Toyota Corolla 2020', price: 15000, location: 'Quito', category: 'Carros y Motos', isNew: false, verified: true, coords: { lat: -0.1807, lng: -78.4678 } },
-    { id: 11, image: '🏠', title: 'Refrigeradora LG', price: 650, location: 'Guayaquil', category: 'Casa y Hogar', isNew: true, verified: true, coords: { lat: -2.1894, lng: -79.8883 } },
-    { id: 12, image: '⚽', title: 'Balón de fútbol Nike', price: 45, location: 'Ambato', category: 'Deportes', isNew: true, verified: false, coords: { lat: -1.2490, lng: -78.6167 } },
-  ];
-
-  // Función para calcular distancia entre dos coordenadas (fórmula de Haversine)
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radio de la Tierra en km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const handleLocationSelect = (locationData) => {
-    setUserLocation(locationData);
-    setLocation('Cercanos'); // Cambia el filtro a "Cercanos"
-  };
-
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
-    setSelectedSubcategory('Todos'); // Reset subcategory cuando cambia la categoría
-  };
-
-  const filteredProducts = allProducts.filter(product => {
-    const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
-    const matchesSubcategory = selectedSubcategory === 'Todos' || product.subcategory === selectedSubcategory;
-
-    let matchesLocation = true;
-    if (location === 'Cercanos' && userLocation) {
-      const distance = calculateDistance(
-        userLocation.lat,
-        userLocation.lng,
-        product.coords.lat,
-        product.coords.lng
-      );
-      matchesLocation = distance <= searchRadius;
-    } else if (location !== 'Todos' && location !== 'Cercanos') {
-      matchesLocation = product.location.includes(location);
+  // Función para obtener la primera imagen de un producto
+  const getProductImage = (product) => {
+    if (product.ProductPhotos && product.ProductPhotos.length > 0) {
+      // Ordenar por position y tomar la primera
+      const sortedPhotos = product.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
+      return sortedPhotos[0].url;
     }
+    return null;
+  };
+
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Filtro de categoría usando IDs del backend
+    let matchesCategory = selectedCategory === 'todos';
+    if (!matchesCategory && product.Category) {
+      matchesCategory = product.Category.id === selectedCategory;
+    }
+    
+    // El backend no tiene location por ahora, así que lo mantenemos como true
+    const matchesLocation = location === 'Todos' || true;
 
     let matchesPrice = true;
     if (priceRange !== 'Todos') {
@@ -117,338 +110,180 @@ function ProductosPage() {
       }
     }
 
-    return matchesSearch && matchesCategory && matchesSubcategory && matchesLocation && matchesPrice;
+    return matchesSearch && matchesCategory && matchesLocation && matchesPrice;
   });
 
-  // Ordenar productos por distancia si hay ubicación del usuario
-  const sortedProducts = userLocation && location === 'Cercanos'
-    ? [...filteredProducts].sort((a, b) => {
-        const distA = calculateDistance(userLocation.lat, userLocation.lng, a.coords.lat, a.coords.lng);
-        const distB = calculateDistance(userLocation.lat, userLocation.lng, b.coords.lat, b.coords.lng);
-        return distA - distB;
-      })
-    : filteredProducts;
-
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#EEE5E9' }}>
-      {/* Hero Section */}
-      <section className="bg-white py-12">
-        <div className="sb-container">
-          <h1 className="text-4xl lg:text-5xl font-black text-gray-900 mb-4">
+    <div className="min-h-screen bg-gray-50">
+      
+      
+      <div className="sb-container py-8">
+        {/* Header de búsqueda */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-black text-gray-900 mb-2">
             Productos disponibles
           </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Encuentra justo lo que buscas entre {allProducts.length} productos
+          <p className="text-gray-600">
+            {loading ? 'Cargando...' : `${filteredProducts.length} productos encontrados`}
           </p>
+        </div>
 
-          {/* Barra de búsqueda */}
-          <div className="relative max-w-3xl">
-            <FiSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar productos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-16 pr-6 py-4 text-lg border-2 border-gray-200 rounded-2xl focus:border-orange-500 focus:outline-none transition-colors"
-            />
+        {/* Barra de búsqueda */}
+        <div className="relative mb-6">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <FiSearch className="h-5 w-5 text-gray-400" />
           </div>
+          <input
+            type="text"
+            placeholder="Buscar productos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg"
+          />
+        </div>
 
-          {/* Botón de filtros móvil */}
+        {/* Filtros */}
+        <div className="mb-8">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="mt-4 lg:hidden flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold"
+            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors mb-4"
           >
-            <FiFilter />
-            Filtros
+            <FiFilter className="w-5 h-5" />
+            <span className="font-semibold">Filtros</span>
           </button>
-        </div>
-      </section>
 
-      {/* Contenido Principal */}
-      <section className="py-12">
-        <div className="sb-container">
-          <div className="grid lg:grid-cols-4 gap-8">
-            {/* Filtros Sidebar */}
-            <div className={`lg:block ${showFilters ? 'block' : 'hidden'} space-y-6`}>
-              {/* Filtro de Ubicación Cercana */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg mb-4">Buscar cerca de ti</h3>
-                <button
-                  onClick={() => setShowLocationPicker(true)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl hover:border-orange-500 transition-colors text-left flex items-center gap-3 mb-3"
+          {showFilters && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Categoría</label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 >
-                  <FiNavigation className="text-xl text-gray-400" />
-                  <span className={userLocation ? 'text-gray-900 text-sm' : 'text-gray-400'}>
-                    {userLocation ? `📍 ${userLocation.address.substring(0, 30)}...` : 'Seleccionar ubicación'}
-                  </span>
-                </button>
-
-                {userLocation && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm text-gray-600 mb-1 block">Radio de búsqueda</label>
-                      <select
-                        value={searchRadius}
-                        onChange={(e) => setSearchRadius(Number(e.target.value))}
-                        className="w-full px-3 py-2 border rounded-lg text-sm"
-                      >
-                        <option value={5}>5 km</option>
-                        <option value={10}>10 km</option>
-                        <option value={20}>20 km</option>
-                        <option value={50}>50 km</option>
-                        <option value={100}>100 km</option>
-                      </select>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setUserLocation(null);
-                        setLocation('Todos');
-                      }}
-                      className="text-sm text-orange-600 hover:text-orange-700 font-semibold"
-                    >
-                      Limpiar ubicación
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Categorías y Subcategorías en una sola card */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg mb-4">Categorías</h3>
-                <div className="space-y-1">
-                  {/* Opción "Todos" */}
-                  <button
-                    onClick={() => handleCategoryChange('Todos')}
-                    className={`w-full text-left px-4 py-2.5 rounded-lg transition-colors font-medium ${
-                      selectedCategory === 'Todos'
-                        ? 'bg-orange-500 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    Todos
-                  </button>
-
-                  {/* Categorías con subcategorías */}
-                  {categoriesData.map((cat) => {
-                    const isSelected = selectedCategory === cat.label;
-                    const categorySubcategories = cat.subcategories;
-
-                    return (
-                      <div key={cat.value}>
-                        {/* Categoría principal */}
-                        <button
-                          onClick={() => handleCategoryChange(cat.label)}
-                          className={`w-full text-left px-4 py-2.5 rounded-lg transition-colors font-medium flex items-center justify-between ${
-                            isSelected
-                              ? 'bg-orange-500 text-white'
-                              : 'hover:bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          <span>{cat.label}</span>
-                          {isSelected && categorySubcategories.length > 0 && (
-                            <FiChevronDown className="text-sm" />
-                          )}
-                        </button>
-
-                        {/* Subcategorías (solo si la categoría está seleccionada) */}
-                        {isSelected && categorySubcategories.length > 0 && (
-                          <div className="ml-4 mt-1 space-y-1 border-l-2 border-orange-200 pl-3">
-                            <button
-                              onClick={() => setSelectedSubcategory('Todos')}
-                              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                                selectedSubcategory === 'Todos'
-                                  ? 'bg-orange-100 text-orange-700 font-semibold'
-                                  : 'hover:bg-gray-100 text-gray-600'
-                              }`}
-                            >
-                              Todos
-                            </button>
-                            {categorySubcategories.map((sub) => (
-                              <button
-                                key={sub.value}
-                                onClick={() => setSelectedSubcategory(sub.value)}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                                  selectedSubcategory === sub.value
-                                    ? 'bg-orange-100 text-orange-700 font-semibold'
-                                    : 'hover:bg-gray-100 text-gray-600'
-                                }`}
-                              >
-                                {sub.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Rango de Precio */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg mb-4">Rango de Precio</h3>
-                <div className="space-y-2">
-                  {priceRanges.map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setPriceRange(range)}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                        priceRange === range
-                          ? 'bg-orange-500 text-white'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {range === 'Todos' ? 'Todos' : `$${range}`}
-                    </button>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
                   ))}
-                </div>
+                </select>
               </div>
-
-              {/* Ubicación */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg mb-4">Ubicación</h3>
-                <div className="space-y-2">
-                  {userLocation && (
-                    <button
-                      onClick={() => setLocation('Cercanos')}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                        location === 'Cercanos'
-                          ? 'bg-orange-500 text-white'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      🎯 Cercanos a mí
-                    </button>
-                  )}
-                  {locations.map((loc) => (
-                    <button
-                      key={loc}
-                      onClick={() => setLocation(loc)}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                        location === loc
-                          ? 'bg-orange-500 text-white'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {loc}
-                    </button>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Rango de precio</label>
+                <select
+                  value={priceRange}
+                  onChange={(e) => setPriceRange(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  {priceRanges.map(range => (
+                    <option key={range} value={range}>
+                      {range === 'Todos' ? 'Todos los precios' : `$${range}`}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
-            </div>
-
-            {/* Grid de Productos */}
-            <div className="lg:col-span-3">
-              <div className="mb-6 flex items-center justify-between">
-                <p className="text-gray-600">
-                  Mostrando <span className="font-bold">{sortedProducts.length}</span> productos
-                  {userLocation && location === 'Cercanos' && (
-                    <span className="text-sm ml-2">a {searchRadius} km de tu ubicación</span>
-                  )}
-                </p>
-                <select className="px-4 py-2 border rounded-lg">
-                  <option>Más recientes</option>
-                  <option>Menor precio</option>
-                  <option>Mayor precio</option>
-                  {userLocation && location === 'Cercanos' && <option>Más cercanos</option>}
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Ubicación</label>
+                <select
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  {locations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
                 </select>
               </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sortedProducts.map((product) => {
-                  const distance = userLocation && location === 'Cercanos'
-                    ? calculateDistance(userLocation.lat, userLocation.lng, product.coords.lat, product.coords.lng)
-                    : null;
-
-                  return (
-                    <Link
-                      key={product.id}
-                      to={`/producto/${product.id}`}
-                      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
-                    >
-                      <div className="relative">
-                        <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl group-hover:scale-105 transition-transform duration-500">
-                          {product.image}
-                        </div>
-
-                        <div className="absolute top-3 left-3 flex flex-col gap-2">
-                          {product.isNew && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full">
-                              <HiSparkles className="text-sm" />
-                              NUEVO
-                            </span>
-                          )}
-                          {product.verified && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-full">
-                              <MdVerified className="text-sm" />
-                              Verificado
-                            </span>
-                          )}
-                          {distance !== null && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-500 text-white text-xs font-bold rounded-full">
-                              <FiMapPin className="text-sm" />
-                              {distance.toFixed(1)} km
-                            </span>
-                          )}
-                        </div>
-
-                        <button
-                          onClick={(e) => e.preventDefault()}
-                          className="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg"
-                        >
-                          <FiHeart className="text-xl text-gray-700" />
-                        </button>
-                      </div>
-
-                      <div className="p-5">
-                        <h3 className="font-semibold text-gray-900 mb-3 group-hover:text-orange-600 transition-colors line-clamp-2 min-h-[3rem]">
-                          {product.title}
-                        </h3>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-3xl font-black" style={{ color: '#CF5C36' }}>
-                            ${product.price}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <FiMapPin className="flex-shrink-0" />
-                          <span className="truncate">{product.location}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Ordenar por</label>
+                <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                  <option>Más recientes</option>
+                  <option>Menor precio</option>
+                  <option>Mayor precio</option>
+                </select>
               </div>
-
-              {sortedProducts.length === 0 && (
-                <div className="text-center py-20">
-                  <p className="text-2xl text-gray-400 mb-4">No se encontraron productos</p>
-                  <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setSelectedCategory('Todos');
-                      setPriceRange('Todos');
-                      setLocation('Todos');
-                      setUserLocation(null);
-                    }}
-                    className="px-6 py-3 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600 transition-colors"
-                  >
-                    Limpiar filtros
-                  </button>
-                </div>
-              )}
             </div>
-          </div>
+          )}
         </div>
-      </section>
 
-      {/* Modal de selección de ubicación */}
-      {showLocationPicker && (
-        <LocationPicker
-          onLocationSelect={handleLocationSelect}
-          onClose={() => setShowLocationPicker(false)}
-          initialPosition={userLocation}
-        />
-      )}
+        {/* Grid de productos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            <div className="col-span-full flex justify-center py-20">
+              <div className="text-xl text-gray-500">Cargando productos...</div>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="col-span-full text-center py-20">
+              <p className="text-2xl text-gray-400 mb-4">No se encontraron productos</p>
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCategory('todos');
+                  setPriceRange('Todos');
+                  setLocation('Todos');
+                }}
+                className="px-6 py-3 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600 transition-colors"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          ) : (
+            filteredProducts.map((product) => {
+              const imageUrl = getProductImage(product);
+              return (
+                <Link
+                  key={product.id}
+                  to={`/producto/${product.id}`}
+                  className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
+                >
+                  <div className="relative">
+                    {imageUrl ? (
+                      <img
+                        src={`http://localhost:8080${imageUrl}`}
+                        alt={product.title}
+                        className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
+                        <span className="text-gray-400 text-4xl">📦</span>
+                      </div>
+                    )}
+                    <button className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-colors">
+                      <FiHeart className="w-5 h-5 text-gray-600 hover:text-red-500" />
+                    </button>
+                    <div className="absolute bottom-3 left-3">
+                      <span className="inline-block px-2 py-1 bg-orange-500/90 text-white text-xs rounded-full font-semibold">
+                        ${product.price}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
+                      {product.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                      {product.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-gray-500 text-sm">
+                        <FiMapPin className="w-4 h-4 mr-1" />
+                        <span>Quito</span> {/* TODO: usar location real del backend */}
+                      </div>
+                      <div className="flex items-center text-green-600 text-sm">
+                        <MdVerified className="w-4 h-4 mr-1" />
+                        <span>Verificado</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      
     </div>
   );
 }
