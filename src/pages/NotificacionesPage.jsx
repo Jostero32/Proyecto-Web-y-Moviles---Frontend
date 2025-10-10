@@ -1,17 +1,33 @@
 import { useEffect } from 'react';
 import { authAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { FiBell, FiWifi, FiZap } from 'react-icons/fi';
+import { FiBell, FiWifi, FiZap, FiWifiOff } from 'react-icons/fi';
+import { useWebSocket, useWebSocketNotifications } from '../hooks/useWebSocket';
 
 function NotificacionesPage() {
   const navigate = useNavigate();
+
+  // WebSocket hooks
+  const { isConnected, reconnectStatus, connect: connectWS } = useWebSocket();
+  const { notifications } = useWebSocketNotifications();
 
   useEffect(() => {
     if (!authAPI.isAuthenticated()) {
       navigate('/login');
       return;
     }
-  }, [navigate]);
+
+    // Conectar a WebSocket para recibir notificaciones
+    const initWebSocket = async () => {
+      try {
+        await connectWS();
+      } catch (error) {
+        console.error('Error conectando WebSocket para notificaciones:', error);
+      }
+    };
+
+    initWebSocket();
+  }, [navigate, connectWS]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -34,9 +50,31 @@ function NotificacionesPage() {
           <h3 className="text-2xl font-bold text-gray-900 mb-4">Sistema de Notificaciones WebSockets</h3>
           
           <div className="max-w-md mx-auto">
-            <div className="flex items-center justify-center gap-3 mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-              <FiWifi className="text-blue-600 text-xl" />
-              <span className="text-blue-800 font-semibold">Conexión en Tiempo Real</span>
+            <div className={`flex items-center justify-center gap-3 mb-4 p-4 rounded-lg border transition-colors ${
+              isConnected 
+                ? 'bg-gradient-to-r from-green-50 to-blue-50 border-green-100' 
+                : reconnectStatus.isReconnecting
+                ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-100'
+                : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-100'
+            }`}>
+              {isConnected ? (
+                <>
+                  <FiWifi className="text-green-600 text-xl" />
+                  <span className="text-green-800 font-semibold">Conectado - Tiempo Real</span>
+                </>
+              ) : reconnectStatus.isReconnecting ? (
+                <>
+                  <FiWifiOff className="text-yellow-600 text-xl animate-pulse" />
+                  <span className="text-yellow-800 font-semibold">
+                    Reconectando... ({reconnectStatus.attempts}/{reconnectStatus.maxAttempts})
+                  </span>
+                </>
+              ) : (
+                <>
+                  <FiWifiOff className="text-red-600 text-xl" />
+                  <span className="text-red-800 font-semibold">Desconectado</span>
+                </>
+              )}
             </div>
             
             <p className="text-gray-600 mb-6">
@@ -62,9 +100,43 @@ function NotificacionesPage() {
               </div>
             </div>
             
+            {/* Mostrar notificaciones recibidas por WebSocket */}
+            {notifications.length > 0 && (
+              <div className="mt-6 space-y-3">
+                <h4 className="text-sm font-bold text-gray-900">Notificaciones Recientes:</h4>
+                {notifications.slice(0, 5).map((notification, index) => (
+                  <div key={notification.id || index} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FiBell className="text-blue-600" />
+                        <span className="text-sm font-semibold text-blue-800">
+                          {notification.title || 'Nueva notificación'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-blue-600">
+                        {new Date(notification.timestamp || Date.now()).toLocaleTimeString('es-EC', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    </div>
+                    {notification.content && (
+                      <p className="text-sm text-blue-700 mt-1">{notification.content}</p>
+                    )}
+                  </div>
+                ))}
+                {notifications.length > 5 && (
+                  <p className="text-xs text-gray-500 text-center">
+                    y {notifications.length - 5} notificaciones más...
+                  </p>
+                )}
+              </div>
+            )}
+            
             <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <p className="text-sm text-gray-500">
-                <strong>Próximamente:</strong> Panel de gestión de notificaciones, configuración de preferencias y historial completo.
+                <strong>Estado:</strong> Sistema WebSocket funcional para notificaciones en tiempo real.
+                {isConnected && <span className="text-green-600 ml-1">✅ Listo para recibir notificaciones</span>}
               </p>
             </div>
           </div>

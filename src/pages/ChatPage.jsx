@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch } from 'react-icons/fi';
+import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch, FiWifi, FiWifiOff } from 'react-icons/fi';
 import { MdVerified } from 'react-icons/md';
 import { authAPI, conversationAPI, messageAPI, userAPI, productAPI, API_BASE_URL } from '../services/api';
+import { useWebSocket, useWebSocketMessages, useOnlineUsers } from '../hooks/useWebSocket';
+import MessageStatusIcon from '../components/MessageStatusIcon';
+import { useMessageVisibility } from '../hooks/useMessageVisibility';
 
 // Función para formatear fecha relativa para mensajes
 const formatMessageTime = (dateString) => {
@@ -21,6 +24,25 @@ const formatMessageTime = (dateString) => {
   if (diffInDays < 7) return `${diffInDays}d`;
   
   return messageDate.toLocaleDateString('es-EC', { month: 'short', day: 'numeric' });
+};
+
+// Función para formatear "última vez visto"
+const formatLastSeen = (dateString) => {
+  const lastSeenDate = new Date(dateString);
+  const now = new Date();
+  const diffInMinutes = Math.floor((now - lastSeenDate) / (1000 * 60));
+  
+  if (diffInMinutes < 1) return 'hace un momento';
+  if (diffInMinutes < 60) return `hace ${diffInMinutes}m`;
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `hace ${diffInHours}h`;
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays === 1) return 'ayer';
+  if (diffInDays < 7) return `hace ${diffInDays}d`;
+  
+  return lastSeenDate.toLocaleDateString('es-EC', { month: 'short', day: 'numeric' });
 };
 
 // Función para formatear timestamp de mensaje individual
@@ -46,7 +68,6 @@ function ChatPage() {
   const { vendorId } = useParams();
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,7 +76,162 @@ function ChatPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const messagesEndRef = useRef(null);
-  const refreshIntervalRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  // WebSocket hooks
+  const { 
+    isConnected, 
+    reconnectStatus, 
+    error: wsError, 
+    connect: connectWS, 
+    disconnect: disconnectWS,
+    startTyping,
+    stopTyping,
+  } = useWebSocket();
+  
+  const { 
+    messages, 
+    typingUsers, 
+    addMessage, 
+    setMessagesFromAPI 
+  } = useWebSocketMessages(selectedChat?.id);
+
+  // Hook para manejar usuarios online
+  const { isUserOnline, getUserStatus, requestOnlineUsers, setUserOnline } = useOnlineUsers();
+
+  // Solicitar usuarios online cuando se conecta el WebSocket
+  useEffect(() => {
+    if (isConnected) {
+      console.log('🔍 WebSocket conectado, solicitando usuarios online...');
+      setTimeout(() => {
+        requestOnlineUsers();
+      }, 1000);
+    }
+  }, [isConnected, requestOnlineUsers]);
+
+  // Marcar usuarios como online cuando detectamos actividad (con throttling)
+  const lastActivityUpdate = useRef(new Map());
+  
+  useEffect(() => {
+    if (!selectedChat) return;
+    
+    // Escuchar eventos de actividad para marcar usuarios como online
+    const handleUserActivity = (activityData) => {
+      const userId = activityData.senderId || activityData.userId || activityData.id;
+      
+      if (userId && userId !== currentUserId) {
+        // Throttle: solo actualizar si han pasado al menos 30 segundos desde la última actualización
+        const now = Date.now();
+        const lastUpdate = lastActivityUpdate.current.get(userId);
+        
+        if (!lastUpdate || (now - lastUpdate > 30000)) {
+          console.log('🟢 Marcando usuario como online por actividad:', userId);
+          setUserOnline(userId, 'online');
+          lastActivityUpdate.current.set(userId, now);
+        }
+      }
+    };
+
+    // Escuchar eventos de mensajes y typing WebSocket
+    let cleanup;
+    import('../services/websocket').then(({ websocketService }) => {
+      websocketService.on('newMessage', handleUserActivity);
+      websocketService.on('userTyping', handleUserActivity);
+      
+      cleanup = () => {
+        websocketService.off('newMessage', handleUserActivity);
+        websocketService.off('userTyping', handleUserActivity);
+      };
+    });
+
+    return cleanup;
+  }, [selectedChat, currentUserId, setUserOnline]);
+
+  // También marcar como online cuando detectamos que alguien está escribiendo (con throttling)
+  useEffect(() => {
+    if (typingUsers.size > 0) {
+      typingUsers.forEach(userId => {
+        if (userId !== currentUserId) {
+          // Throttle: solo actualizar si han pasado al menos 10 segundos
+          const now = Date.now();
+          const lastUpdate = lastActivityUpdate.current.get(`typing_${userId}`);
+          
+          if (!lastUpdate || (now - lastUpdate > 10000)) {
+            console.log('✍️ Usuario escribiendo, marcando como online:', userId);
+            setUserOnline(userId, 'online');
+            lastActivityUpdate.current.set(`typing_${userId}`, now);
+          }
+        }
+      });
+    }
+  }, [typingUsers, currentUserId, setUserOnline]);
+
+  // Ref para mantener conversations actualizado sin causar re-renders
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+
+  // Crear lista estable de IDs de conversaciones para evitar re-renders innecesarios
+  const conversationIds = useMemo(() => {
+    return conversations.map(conv => conv.originalData?.id).filter(Boolean);
+  }, [conversations]);
+
+  // Detectar usuarios online por actividad reciente (una sola vez al cargar)
+  useEffect(() => {
+    if (!conversationIds.length) return;
+
+    const timeout = setTimeout(() => {
+      conversationsRef.current.forEach(conversation => {
+        const otherUserId = conversation.originalData?.buyerId === currentUserId 
+          ? conversation.originalData?.sellerId 
+          : conversation.originalData?.buyerId;
+
+        if (!otherUserId) return;
+
+        // Verificar si ya hemos procesado este usuario recientemente
+        const now = Date.now();
+        const lastCheck = lastActivityUpdate.current.get(`recent_${otherUserId}`);
+        
+        if (lastCheck && (now - lastCheck < 60000)) return; // Solo verificar cada minuto
+
+        // Buscar último mensaje del otro usuario
+        const lastMessage = conversation.originalData?.Messages?.[0];
+        if (lastMessage && lastMessage.senderId === otherUserId) {
+          const lastMessageTime = new Date(lastMessage.createdAt || lastMessage.sentAt);
+          const diffMinutes = Math.floor((now - lastMessageTime) / (1000 * 60));
+          
+          if (diffMinutes < 10) {
+            console.log(`👤 Marcando usuario ${otherUserId} como online por actividad reciente (${diffMinutes}m ago)`);
+            setUserOnline(otherUserId, 'online');
+          }
+        }
+        
+        lastActivityUpdate.current.set(`recent_${otherUserId}`, now);
+      });
+    }, 1000); // Esperar 1 segundo antes de procesar
+
+    return () => clearTimeout(timeout);
+  }, [conversationIds, currentUserId, setUserOnline]);
+
+  // Hook para detectar visibilidad de mensajes y marcarlos como leídos
+  const handleMessageVisible = useCallback(async (messageId) => {
+    try {
+      // Marcar mensaje como leído en el backend
+      if (isConnected) {
+        // Si hay WebSocket, usar WebSocket
+        import('../services/websocket').then(({ websocketService }) => {
+          websocketService.markMessageAsRead(messageId);
+        });
+      } else {
+        // Si no hay WebSocket, usar HTTP (si tienes una API para esto)
+        console.log('Marcando mensaje como leído (HTTP):', messageId);
+        // Aquí puedes agregar una llamada HTTP si la tienes
+      }
+    } catch (error) {
+      console.error('Error marcando mensaje como leído:', error);
+    }
+  }, [isConnected]);
+
+  const { setMessageRef } = useMessageVisibility(messages, handleMessageVisible);
 
   // Establecer usuario actual al montar el componente
   useEffect(() => {
@@ -65,72 +241,91 @@ function ChatPage() {
     }
   }, []);
 
-  // Función para refrescar mensajes sin cambiar el selectedChat
-  const refreshMessages = useCallback(async () => {
-    if (!selectedChat) return;
-    
-    try {
-      const backendMessages = await conversationAPI.getConversationMessages(selectedChat.id);
-      
-      const userData = authAPI.getUserData();
-      const currentUserIdForMapping = userData?.id || currentUserId;
-      
-      const mappedMessages = backendMessages.map(msg => ({
-        id: msg.id,
-        text: msg.content,
-        sender: msg.senderId === currentUserIdForMapping ? 'me' : 'vendor',
-        timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt),
-        originalData: msg
-      }));
-      
-        // Solo actualizar si hay cambios (evitar re-renders innecesarios)
-      setMessages(prevMessages => {
-        const hasChanges = prevMessages.length !== mappedMessages.length ||
-          (prevMessages.length > 0 && mappedMessages.length > 0 &&
-           prevMessages[prevMessages.length - 1]?.id !== mappedMessages[mappedMessages.length - 1]?.id);
-        
-        if (hasChanges) {
-          console.log('📬 Nuevos mensajes detectados, actualizando UI...');
-          
-          // Auto-scroll si hay mensajes nuevos
-          setTimeout(() => {
-            if (messagesEndRef.current) {
-              messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-          }, 100);
-          
-          return mappedMessages;
-        }
-        
-        return prevMessages; // No hay cambios
-      });    } catch (error) {
-      console.error('Error al refrescar mensajes:', error);
-    }
-  }, [selectedChat, currentUserId]);
-
-  // Auto-refresh de mensajes cada 3 segundos cuando hay chat activo
+  // Inicializar conexión WebSocket al montar el componente
   useEffect(() => {
-    if (selectedChat) {
-      // Refrescar inmediatamente
-      refreshMessages();
-      
-      // Configurar intervalo
-      refreshIntervalRef.current = setInterval(refreshMessages, 3000);
-      
-      return () => {
-        if (refreshIntervalRef.current) {
-          clearInterval(refreshIntervalRef.current);
-          refreshIntervalRef.current = null;
-        }
-      };
-    } else {
-      // Limpiar intervalo si no hay chat seleccionado
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = null;
+    const initWebSocket = async () => {
+      try {
+        console.log('🔌 Intentando conectar WebSocket...');
+        await connectWS();
+        console.log('✅ WebSocket conectado exitosamente');
+      } catch (error) {
+        console.warn('⚠️ WebSocket no disponible, continuando sin tiempo real:', error.message);
+        // El chat sigue funcionando sin WebSocket, solo sin tiempo real
       }
+    };
+
+    initWebSocket();
+
+    // Limpiar al desmontar
+    return () => {
+      console.log('🔌 Desconectando WebSocket...');
+      disconnectWS();
+    };
+  }, [connectWS, disconnectWS]);
+
+  // Auto-scroll cuando llegan nuevos mensajes
+  useEffect(() => {
+    setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 100);
+  }, [messages]);
+
+  // Sistema de fallback HTTP cuando WebSocket no está funcionando correctamente
+  useEffect(() => {
+    let pollInterval = null;
+
+    const refreshMessagesFromAPI = async () => {
+      if (!selectedChat) return;
+      
+      try {
+        const backendMessages = await conversationAPI.getConversationMessages(selectedChat.id);
+        const userData = authAPI.getUserData();
+        const currentUserIdForMapping = userData?.id || currentUserId;
+        
+        const mappedMessages = backendMessages.map(msg => ({
+          id: msg.id,
+          text: msg.content,
+          sender: msg.senderId === currentUserIdForMapping ? 'me' : 'vendor',
+          timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt),
+          originalData: msg
+        }));
+
+        // Solo actualizar si hay cambios y WebSocket no está conectado
+        if (!isConnected && messages.length !== mappedMessages.length) {
+          console.log('🔄 Actualizando mensajes via HTTP (WebSocket desconectado)');
+          setMessagesFromAPI(mappedMessages);
+        }
+      } catch (error) {
+        console.error('Error al refrescar mensajes via HTTP:', error);
+      }
+    };
+
+    // Si WebSocket no está conectado, usar polling HTTP cada 3 segundos
+    if (selectedChat && !isConnected) {
+      console.log('🔄 Iniciando polling HTTP como fallback');
+      pollInterval = setInterval(refreshMessagesFromAPI, 3000);
     }
-  }, [selectedChat, refreshMessages]);
+
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        console.log('🔄 Deteniendo polling HTTP');
+      }
+    };
+  }, [selectedChat, isConnected, messages.length, currentUserId, setMessagesFromAPI]);
+
+  // Actualizar estado online de conversaciones cuando cambie la lista de usuarios online
+  useEffect(() => {
+    setConversations(prevConversations => 
+      prevConversations.map(conv => ({
+        ...conv,
+        online: isUserOnline(conv.otherUserId),
+        lastSeen: getUserStatus(conv.otherUserId).lastSeen
+      }))
+    );
+  }, [isUserOnline, getUserStatus]); // Se ejecuta cuando cambian los usuarios online
 
   // Función para seleccionar un chat y cargar sus mensajes
   const handleSelectChat = useCallback(async (conversation) => {
@@ -149,17 +344,28 @@ function ChatPage() {
       
       const mappedMessages = backendMessages.map(msg => {
         console.log('Mapeando mensaje:', msg);
+        const isOwn = msg.senderId === currentUserIdForMapping;
+        
+        // Determinar estado del mensaje
+        let status = 'sent'; // Por defecto enviado
+        if (msg.read) {
+          status = 'read'; // Visto
+        } else if (msg.delivered) {
+          status = 'delivered'; // Entregado
+        }
+        
         return {
           id: msg.id,
           text: msg.content,
-          sender: msg.senderId === currentUserIdForMapping ? 'me' : 'vendor',
-          timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt), // Usar sentAt primero
+          sender: isOwn ? 'me' : 'vendor',
+          timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt),
+          status: status, // Estado del mensaje
           // Datos originales
           originalData: msg
         };
       });
       
-      setMessages(mappedMessages);
+      setMessagesFromAPI(mappedMessages);
       navigate(`/chat/${conversation.id}`);
       
       // Scroll al final después de cargar mensajes
@@ -171,11 +377,11 @@ function ChatPage() {
       
     } catch (error) {
       console.error('Error al cargar mensajes:', error);
-      setMessages([]);
+      setMessagesFromAPI([]);
     } finally {
       setMessagesLoading(false);
     }
-  }, [currentUserId, navigate]);
+  }, [currentUserId, navigate, setMessagesFromAPI]);
 
   // Función para cargar conversaciones desde el backend
   const loadConversations = useCallback(async () => {
@@ -303,13 +509,20 @@ function ChatPage() {
             }
           }, null, 2));
 
+          // Determinar estado online del otro usuario
+          // Solo leer el estado, no modificarlo aquí para evitar bucles
+          const isOnline = false; // Se actualizará dinámicamente en el render
+          const userStatus = { status: 'offline', lastSeen: null };
+
           return {
             id: conversation.id,
             vendorName: displayName,
             vendorAvatar: avatarLetter,
             vendorImage: avatarImage, // Imagen real del usuario
             verified: otherUser?.isVerified || false,
-            online: false, // El backend no maneja estado online
+            online: isOnline,
+            lastSeen: userStatus.lastSeen,
+            otherUserId: otherUserId, // Guardar ID del otro usuario para referencia
             product: product ? {
               id: product.id,
               title: product.title,
@@ -364,22 +577,55 @@ function ChatPage() {
       try {
         setSendingMessage(true);
         
-        // Enviar mensaje al backend
-        console.log('Enviando mensaje al backend...');
-        const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
-        console.log('Mensaje enviado:', sentMessage);
-        
-        // Crear mensaje local para UI inmediata
-        const newMessage = {
-          id: sentMessage.id,
-          text: message.trim(),
-          sender: 'me',
-          timestamp: formatMessageTimestamp(sentMessage.sentAt || sentMessage.createdAt),
-          originalData: sentMessage
-        };
-        
-        setMessages(prev => [...prev, newMessage]);
-        setMessage('');
+        // Intentar enviar por WebSocket si está conectado
+        if (isConnected) {
+          console.log('Enviando mensaje por WebSocket...');
+          import('../services/websocket').then(({ websocketService }) => {
+            const success = websocketService.sendMessage(selectedChat.id, message.trim());
+            if (success) {
+              console.log('✅ Mensaje enviado por WebSocket');
+            } else {
+              console.log('⚠️ WebSocket no pudo enviar, intentando HTTP...');
+              // Si WebSocket falla, enviar por HTTP como fallback
+              sendViaHTTP();
+            }
+          });
+          
+          // Crear mensaje local optimista (se confirmará con WebSocket)
+          const optimisticMessage = {
+            id: `temp-${Date.now()}`,
+            text: message.trim(),
+            sender: 'me',
+            timestamp: formatMessageTimestamp(new Date().toISOString()),
+            status: 'sending',
+            pending: true
+          };
+          
+          addMessage(optimisticMessage);
+          setMessage('');
+        } else {
+          // Si no hay WebSocket, enviar por HTTP directamente
+          await sendViaHTTP();
+        }
+
+        async function sendViaHTTP() {
+          console.log('Enviando mensaje por HTTP...');
+          const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
+          console.log('Mensaje enviado por HTTP:', sentMessage);
+          
+          // Crear mensaje local para UI inmediata
+          const newMessage = {
+            id: sentMessage.id,
+            text: message.trim(),
+            sender: 'me',
+            timestamp: formatMessageTimestamp(sentMessage.sentAt || sentMessage.createdAt),
+            status: 'sent', // Enviado por HTTP
+            originalData: sentMessage
+          };
+          
+          addMessage(newMessage);
+          setMessage('');
+        }
 
         // Scroll al final después de agregar el mensaje
         setTimeout(() => {
@@ -400,10 +646,22 @@ function ChatPage() {
         if (errorMessage && errorMessage.includes('Notification.title cannot be null')) {
           console.warn('Error de notificación REST detectado - Probablemente el mensaje sí se creó');
           
-          // Usar la función de refresh para verificar si el mensaje se creó
+          // Recargar mensajes desde API para verificar si el mensaje se creó
           try {
             console.log('Recargando mensajes para verificar si se creó...');
-            await refreshMessages();
+            const backendMessages = await conversationAPI.getConversationMessages(selectedChat.id);
+            const userData = authAPI.getUserData();
+            const currentUserIdForMapping = userData?.id || currentUserId;
+            
+            const mappedMessages = backendMessages.map(msg => ({
+              id: msg.id,
+              text: msg.content,
+              sender: msg.senderId === currentUserIdForMapping ? 'me' : 'vendor',
+              timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt),
+              originalData: msg
+            }));
+            
+            setMessagesFromAPI(mappedMessages);
             setMessage(''); // Limpiar input
             
             // Scroll al final
@@ -435,6 +693,27 @@ function ChatPage() {
       });
     }
   };
+
+  // Manejar indicador de "escribiendo"
+  const handleTyping = useCallback(() => {
+    if (!selectedChat) return;
+
+    // Solo enviar si WebSocket está conectado
+    if (isConnected) {
+      // Enviar indicador de que está escribiendo
+      startTyping(selectedChat.id);
+
+      // Limpiar timeout anterior
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Detener indicador de escribiendo después de 2 segundos de inactividad
+      typingTimeoutRef.current = setTimeout(() => {
+        stopTyping(selectedChat.id);
+      }, 2000);
+    }
+  }, [selectedChat, isConnected, startTyping, stopTyping]);
 
   // Cargar conversaciones al montar el componente
   useEffect(() => {
@@ -520,7 +799,7 @@ function ChatPage() {
                             {conv.vendorAvatar}
                           </div>
                         )}
-                        {conv.online && (
+                        {isUserOnline(conv.otherUserId) && (
                           <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                         )}
                       </div>
@@ -561,6 +840,58 @@ function ChatPage() {
               <>
                 {/* Header del chat */}
                 <div className="p-4 border-b border-gray-200">
+                  {/* Indicador de conexión WebSocket */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {isConnected ? (
+                        <div className="flex items-center gap-1 text-green-600 text-xs">
+                          <FiWifi className="text-sm" />
+                          <span>Tiempo Real</span>
+                        </div>
+                      ) : reconnectStatus.isReconnecting ? (
+                        <div className="flex items-center gap-1 text-yellow-600 text-xs">
+                          <FiWifiOff className="text-sm animate-pulse" />
+                          <span>Reconectando... ({reconnectStatus.attempts}/{reconnectStatus.maxAttempts})</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-green-600 text-xs">
+                          <FiWifiOff className="text-sm" />
+                          <span>Modo HTTP (funciona correctamente)</span>
+                        </div>
+                      )}
+                    </div>
+                    {wsError && reconnectStatus.attempts >= 3 && (
+                      <div className="text-xs text-blue-500 truncate max-w-xs" title="Para habilitar tiempo real, implementa servidor WebSocket en el backend">
+                        💡 Servidor WebSocket no configurado
+                      </div>
+                    )}
+                    
+                    {/* Botón de prueba WebSocket (temporal para debugging) */}
+                    {isConnected && selectedChat && (
+                      <button
+                        onClick={() => {
+                          const testMessage = {
+                            id: Date.now(),
+                            conversationId: selectedChat.id,
+                            senderId: selectedChat.originalData.buyerId === currentUserId 
+                              ? selectedChat.originalData.sellerId 
+                              : selectedChat.originalData.buyerId,
+                            content: `🧪 Mensaje de prueba ${new Date().toLocaleTimeString()}`,
+                            sentAt: new Date().toISOString(),
+                            createdAt: new Date().toISOString()
+                          };
+                          console.log('🧪 Simulando mensaje WebSocket:', testMessage);
+                          import('../services/websocket').then(({ websocketService }) => {
+                            websocketService.simulateMessage(testMessage);
+                          });
+                        }}
+                        className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                      >
+                        Test WS
+                      </button>
+                    )}
+                  </div>
+                  
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
                       {selectedChat.vendorImage ? (
@@ -581,7 +912,7 @@ function ChatPage() {
                           {selectedChat.vendorAvatar}
                         </div>
                       )}
-                      {selectedChat.online && (
+                      {isUserOnline(selectedChat.otherUserId) && (
                         <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
                       )}
                     </div>
@@ -590,8 +921,15 @@ function ChatPage() {
                         <h2 className="font-bold text-gray-900">{selectedChat.vendorName}</h2>
                         {selectedChat.verified && <MdVerified className="text-blue-500" />}
                       </div>
-                      <p className="text-xs text-green-600 font-semibold">
-                        {selectedChat.online ? 'En línea' : 'Desconectado'}
+                      <p className={`text-xs font-semibold ${
+                        isUserOnline(selectedChat.otherUserId) ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        {isUserOnline(selectedChat.otherUserId) 
+                          ? 'En línea' 
+                          : selectedChat.lastSeen 
+                            ? `Visto ${formatLastSeen(selectedChat.lastSeen)}`
+                            : 'Desconectado'
+                        }
                       </p>
                     </div>
                   </div>
@@ -647,6 +985,9 @@ function ChatPage() {
                     <div
                       key={msg.id}
                       className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}
+                      ref={msg.sender !== 'me' ? (el) => setMessageRef(msg.id, el) : null}
+                      data-message-id={msg.id}
+                      data-message-status={msg.status}
                     >
                       <div className={`max-w-md ${msg.sender === 'me' ? 'order-2' : 'order-1'}`}>
                         {msg.sender === 'vendor' && (
@@ -682,13 +1023,53 @@ function ChatPage() {
                         >
                           <p className="text-sm leading-relaxed">{msg.text}</p>
                         </div>
-                        <p className={`text-xs text-gray-400 mt-1 px-1 ${msg.sender === 'me' ? 'text-right' : 'text-left'}`}>
-                          {msg.timestamp}
-                        </p>
+                        <div className={`flex items-center mt-1 px-1 gap-1 ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
+                          <p className="text-xs text-gray-400">
+                            {msg.timestamp}
+                          </p>
+                          <MessageStatusIcon 
+                            status={msg.status || 'sent'} 
+                            isOwn={msg.sender === 'me'} 
+                          />
+                        </div>
                       </div>
                     </div>
                   ))
                   )}
+                  
+                  {/* Indicador de "escribiendo" */}
+                  {typingUsers.size > 0 && (
+                    <div className="flex justify-start">
+                      <div className="max-w-md">
+                        <div className="flex items-end gap-2 mb-1">
+                          {selectedChat.vendorImage ? (
+                            <img 
+                              src={selectedChat.vendorImage} 
+                              alt={selectedChat.vendorName}
+                              className="w-6 h-6 rounded-full object-cover border border-orange-200"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
+                              {selectedChat.vendorAvatar}
+                            </div>
+                          )}
+                          <p className="text-xs font-semibold text-gray-600">{selectedChat.vendorName}</p>
+                        </div>
+                        
+                        <div className="px-4 py-3 rounded-2xl bg-gray-100 text-gray-900 rounded-bl-sm">
+                          <div className="flex items-center gap-1">
+                            <div className="flex gap-1">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                            <span className="text-xs text-gray-500 ml-2">escribiendo...</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -698,7 +1079,10 @@ function ChatPage() {
                     <input
                       type="text"
                       value={message}
-                      onChange={(e) => setMessage(e.target.value)}
+                      onChange={(e) => {
+                        setMessage(e.target.value);
+                        handleTyping();
+                      }}
                       placeholder="Escribe un mensaje..."
                       className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     />
