@@ -1,7 +1,46 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch } from 'react-icons/fi';
 import { MdVerified } from 'react-icons/md';
+import { authAPI, conversationAPI, messageAPI, userAPI, productAPI, API_BASE_URL } from '../services/api';
+
+// Función para formatear fecha relativa para mensajes
+const formatMessageTime = (dateString) => {
+  const now = new Date();
+  const messageDate = new Date(dateString);
+  const diffInMinutes = Math.floor((now - messageDate) / (1000 * 60));
+  
+  if (diffInMinutes < 1) return 'Ahora';
+  if (diffInMinutes < 60) return `${diffInMinutes}m`;
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h`;
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays === 1) return 'Ayer';
+  if (diffInDays < 7) return `${diffInDays}d`;
+  
+  return messageDate.toLocaleDateString('es-EC', { month: 'short', day: 'numeric' });
+};
+
+// Función para formatear timestamp de mensaje individual
+const formatMessageTimestamp = (dateString) => {
+  const messageDate = new Date(dateString);
+  const now = new Date();
+  
+  if (messageDate.toDateString() === now.toDateString()) {
+    return messageDate.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+  } else if (messageDate.toDateString() === new Date(now.getTime() - 86400000).toDateString()) {
+    return `Ayer ${messageDate.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}`;
+  } else {
+    return messageDate.toLocaleDateString('es-EC', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+};
 
 function ChatPage() {
   const { vendorId } = useParams();
@@ -11,133 +50,181 @@ function ChatPage() {
   const [conversations, setConversations] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const messagesEndRef = useRef(null);
 
-  // Simulación de conversaciones activas
-  useEffect(() => {
-    const mockConversations = [
-      {
-        id: '1',
-        vendorName: 'Juan Pérez',
-        vendorAvatar: 'J',
-        verified: true,
-        online: true,
-        product: {
-          id: 1,
-          title: 'iPhone 14 Pro Max 128GB',
-          price: 890,
-          image: '📱'
-        },
-        lastMessage: 'Está en excelente estado, como nuevo.',
-        lastMessageTime: '10:35',
-        unread: 2,
-        messages: [
-          { id: 1, text: '¡Hola! Vi tu anuncio del iPhone 14 Pro Max. ¿Está disponible?', sender: 'me', timestamp: '10:30' },
-          { id: 2, text: '¡Hola! Sí, está disponible. ¿Te interesa?', sender: 'vendor', timestamp: '10:32' },
-          { id: 3, text: '¿Cuál es el estado real del teléfono?', sender: 'me', timestamp: '10:33' },
-          { id: 4, text: 'Está en excelente estado, como nuevo. Sin rayones ni golpes.', sender: 'vendor', timestamp: '10:35' }
-        ]
-      },
-      {
-        id: '2',
-        vendorName: 'María García',
-        vendorAvatar: 'M',
-        verified: false,
-        online: false,
-        product: {
-          id: 2,
-          title: 'MacBook Pro M3 512GB',
-          price: 1850,
-          image: '💻'
-        },
-        lastMessage: 'Perfecto, nos vemos mañana',
-        lastMessageTime: 'Ayer',
-        unread: 0,
-        messages: [
-          { id: 1, text: '¿Puedo verlo mañana?', sender: 'me', timestamp: 'Ayer 15:20' },
-          { id: 2, text: 'Claro, ¿a qué hora te viene bien?', sender: 'vendor', timestamp: 'Ayer 15:25' },
-          { id: 3, text: '¿A las 3pm?', sender: 'me', timestamp: 'Ayer 15:30' },
-          { id: 4, text: 'Perfecto, nos vemos mañana', sender: 'vendor', timestamp: 'Ayer 15:32' }
-        ]
-      },
-      {
-        id: '3',
-        vendorName: 'Carlos López',
-        vendorAvatar: 'C',
-        verified: true,
-        online: true,
-        product: {
-          id: 3,
-          title: 'AirPods Pro 2da Gen',
-          price: 180,
-          image: '🎧'
-        },
-        lastMessage: '¿Aceptas $150?',
-        lastMessageTime: 'Hace 2 días',
-        unread: 1,
-        messages: [
-          { id: 1, text: 'Me interesan los AirPods', sender: 'me', timestamp: 'Hace 2 días' },
-          { id: 2, text: '¿Aceptas $150?', sender: 'vendor', timestamp: 'Hace 2 días' }
-        ]
-      }
-    ];
-
-    setConversations(mockConversations);
-
-    // Si hay vendorId en la URL, seleccionar ese chat
-    if (vendorId) {
-      const chat = mockConversations.find(c => c.id === vendorId);
-      if (chat) {
-        setSelectedChat(chat);
-        setMessages(chat.messages);
-      }
-    }
-  }, [vendorId]);
-
-  const handleSelectChat = (conversation) => {
-    setSelectedChat(conversation);
-    setMessages(conversation.messages);
-    navigate(`/chat/${conversation.id}`);
-  };
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (message.trim() && selectedChat) {
-      const newMessage = {
-        id: messages.length + 1,
-        text: message,
-        sender: 'me',
-        timestamp: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, newMessage]);
-      setMessage('');
-
-      // Scroll al final después de agregar el mensaje
+  // Función para seleccionar un chat y cargar sus mensajes
+  const handleSelectChat = useCallback(async (conversation) => {
+    try {
+      setSelectedChat(conversation);
+      setMessagesLoading(true);
+      
+      // Cargar mensajes de la conversación desde el backend
+      const backendMessages = await conversationAPI.getConversationMessages(conversation.id);
+      
+      // Mapear mensajes del backend al formato UI
+      const mappedMessages = backendMessages.map(msg => ({
+        id: msg.id,
+        text: msg.content,
+        sender: msg.senderId === currentUserId ? 'me' : 'vendor',
+        timestamp: formatMessageTimestamp(msg.createdAt),
+        // Datos originales
+        originalData: msg
+      }));
+      
+      setMessages(mappedMessages);
+      navigate(`/chat/${conversation.id}`);
+      
+      // Scroll al final después de cargar mensajes
       setTimeout(() => {
         if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       }, 100);
+      
+    } catch (error) {
+      console.error('Error al cargar mensajes:', error);
+      setMessages([]);
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [currentUserId, navigate]);
 
-      // Simulación de respuesta automática
-      setTimeout(() => {
-        const vendorResponse = {
-          id: Date.now(),
-          text: '¡Perfecto! ¿Tienes alguna otra pregunta?',
-          sender: 'vendor',
-          timestamp: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+  // Función para cargar conversaciones desde el backend
+  const loadConversations = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Obtener el usuario actual
+      const userData = authAPI.getUserData();
+      if (userData) {
+        setCurrentUserId(userData.id);
+      }
+
+      // Cargar conversaciones del backend
+      const backendConversations = await conversationAPI.getMyConversations();
+      
+      // Mapear conversaciones del backend al formato UI
+      const mappedConversations = await Promise.all(
+        backendConversations.map(async (conversation) => {
+          // Determinar quién es el otro usuario (buyer o seller)
+          const isCurrentUserBuyer = conversation.buyerId === userData?.id;
+          const otherUserId = isCurrentUserBuyer ? conversation.sellerId : conversation.buyerId;
+          
+          // Obtener información del otro usuario
+          let otherUser = null;
+          try {
+            otherUser = await userAPI.getUserById(otherUserId);
+          } catch (error) {
+            console.warn(`No se pudo obtener usuario ${otherUserId}:`, error);
+          }
+
+          // Obtener información del producto
+          let product = null;
+          try {
+            product = await productAPI.getProductById(conversation.productId);
+          } catch (error) {
+            console.warn(`No se pudo obtener producto ${conversation.productId}:`, error);
+          }
+
+          // Obtener último mensaje
+          const lastMessage = conversation.Messages && conversation.Messages.length > 0 
+            ? conversation.Messages[conversation.Messages.length - 1]
+            : null;
+
+          return {
+            id: conversation.id,
+            vendorName: otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : 'Usuario',
+            vendorAvatar: otherUser ? (otherUser.firstName?.[0] || 'U') : 'U',
+            verified: otherUser?.isVerified || false,
+            online: false, // El backend no maneja estado online
+            product: product ? {
+              id: product.id,
+              title: product.title,
+              price: product.price,
+              image: product.photos?.[0] ? `${API_BASE_URL}${product.photos[0]}` : '📦'
+            } : {
+              id: conversation.productId,
+              title: 'Producto no disponible',
+              price: 0,
+              image: '📦'
+            },
+            lastMessage: lastMessage?.content || 'Sin mensajes',
+            lastMessageTime: lastMessage ? formatMessageTime(lastMessage.createdAt) : '',
+            unread: 0, // Por ahora sin lógica de no leídos
+            // Datos originales para referencia
+            originalData: conversation,
+            isCurrentUserBuyer
+          };
+        })
+      );
+
+      setConversations(mappedConversations);
+
+      // Si hay vendorId en la URL, buscar y seleccionar esa conversación
+      if (vendorId) {
+        const targetConversation = mappedConversations.find(c => c.id.toString() === vendorId);
+        if (targetConversation) {
+          await handleSelectChat(targetConversation);
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar conversaciones:', error);
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [handleSelectChat, vendorId]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (message.trim() && selectedChat && !sendingMessage) {
+      try {
+        setSendingMessage(true);
+        
+        // Enviar mensaje al backend
+        const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
+        
+        // Crear mensaje local para UI inmediata
+        const newMessage = {
+          id: sentMessage.id,
+          text: message.trim(),
+          sender: 'me',
+          timestamp: formatMessageTimestamp(sentMessage.createdAt),
+          originalData: sentMessage
         };
-        setMessages(prev => [...prev, vendorResponse]);
+        
+        setMessages(prev => [...prev, newMessage]);
+        setMessage('');
 
-        // Scroll al final después de la respuesta
+        // Scroll al final después de agregar el mensaje
         setTimeout(() => {
           if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           }
         }, 100);
-      }, 2000);
+        
+      } catch (error) {
+        console.error('Error al enviar mensaje:', error);
+        // Mostrar error al usuario si es necesario
+      } finally {
+        setSendingMessage(false);
+      }
     }
   };
+
+  // Cargar conversaciones al montar el componente
+  useEffect(() => {
+    if (!authAPI.isAuthenticated()) {
+      navigate('/login');
+      return;
+    }
+
+    loadConversations();
+  }, [loadConversations, navigate]);
 
   const filteredConversations = conversations.filter(conv =>
     conv.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -171,7 +258,20 @@ function ChatPage() {
 
             {/* Lista de chats */}
             <div className="flex-1 overflow-y-auto">
-              {filteredConversations.length > 0 ? (
+              {loading ? (
+                <div className="space-y-2 p-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 animate-pulse">
+                      <div className="w-12 h-12 rounded-full bg-gray-200"></div>
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredConversations.length > 0 ? (
                 filteredConversations.map((conv) => (
                   <button
                     key={conv.id}
@@ -249,8 +349,20 @@ function ChatPage() {
                   {/* Producto en conversación */}
                   <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-2xl">
-                        {selectedChat.product.image}
+                      <div className="w-12 h-12 bg-white rounded-lg overflow-hidden flex items-center justify-center">
+                        {selectedChat.product.image.startsWith('http') ? (
+                          <img 
+                            src={selectedChat.product.image} 
+                            alt={selectedChat.product.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.parentElement.innerHTML = '<div class="text-2xl text-gray-400">📦</div>';
+                            }}
+                          />
+                        ) : (
+                          <div className="text-2xl">{selectedChat.product.image}</div>
+                        )}
                       </div>
                       <div className="flex-1">
                         <p className="text-xs font-semibold text-gray-600 mb-1">{selectedChat.product.title}</p>
@@ -268,7 +380,20 @@ function ChatPage() {
 
                 {/* Mensajes */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((msg) => (
+                  {messagesLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                          <div className="max-w-md">
+                            <div className="px-4 py-3 rounded-2xl bg-gray-200 animate-pulse">
+                              <div className="h-4 bg-gray-300 rounded"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    messages.map((msg) => (
                     <div
                       key={msg.id}
                       className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}
@@ -297,7 +422,8 @@ function ChatPage() {
                         </p>
                       </div>
                     </div>
-                  ))}
+                  ))
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -313,10 +439,15 @@ function ChatPage() {
                     />
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold flex items-center gap-2"
+                      disabled={sendingMessage}
+                      className={`px-6 py-3 text-white rounded-lg transition-colors font-semibold flex items-center gap-2 ${
+                        sendingMessage 
+                          ? 'bg-orange-400 cursor-not-allowed' 
+                          : 'bg-orange-600 hover:bg-orange-700'
+                      }`}
                     >
-                      <FiSend />
-                      Enviar
+                      <FiSend className={sendingMessage ? 'animate-pulse' : ''} />
+                      {sendingMessage ? 'Enviando...' : 'Enviar'}
                     </button>
                   </div>
                 </form>

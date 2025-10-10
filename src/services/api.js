@@ -399,4 +399,46 @@ export const notificationAPI = {
   }
 };
 
+// API para Conversaciones
+export const conversationAPI = {
+  // Obtener todas las conversaciones del usuario
+  getMyConversations: async () => {
+    const response = await api.get('/conversations');
+    return response.data;
+  },
+
+  // Crear una nueva conversación
+  createConversation: async (productId, sellerId) => {
+    const response = await api.post('/conversations', {
+      productId,
+      sellerId
+    });
+    return response.data;
+  },
+
+  // Obtener mensajes de una conversación específica
+  getConversationMessages: async (conversationId) => {
+    const response = await api.get(`/conversations/${conversationId}/messages`);
+    return response.data;
+  }
+};
+
+// API para Mensajes
+export const messageAPI = {
+  // Enviar un mensaje en una conversación
+  sendMessage: async (conversationId, content) => {
+    const response = await api.post('/messages', {
+      conversationId,
+      content
+    });
+    return response.data;
+  },
+
+  // Obtener mensajes de una conversación (alternativo)
+  getMessages: async (conversationId) => {
+    const response = await api.get(`/messages/conversation/${conversationId}`);
+    return response.data;
+  }
+};
+
 export default api;

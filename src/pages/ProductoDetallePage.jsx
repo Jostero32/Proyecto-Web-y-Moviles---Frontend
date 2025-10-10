@@ -5,7 +5,7 @@ import {
 } from 'react-icons/fi';
 import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
-import { productAPI, categoryAPI, userAPI, API_BASE_URL } from '../services/api';
+import { productAPI, categoryAPI, userAPI, conversationAPI, authAPI, API_BASE_URL } from '../services/api';
 
 function ProductoDetallePage() {
   const { id } = useParams();
@@ -14,6 +14,7 @@ function ProductoDetallePage() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [contactingVendor, setContactingVendor] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
