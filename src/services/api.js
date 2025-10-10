@@ -311,7 +311,7 @@ export const productAPI = {
     if (productData.price) formData.append('price', productData.price);
     if (productData.categoryId) formData.append('categoryId', productData.categoryId);
     if (productData.location) formData.append('location', productData.location);
-    if (productData.locationCoords) formData.append('locationCoords', JSON.stringify(productData.locationCoords));
+    formData.append('locationCoords', JSON.stringify(productData.locationCoords || { lat: null, lng: null }));
     if (productData.status) formData.append('status', productData.status);
     
     // Agregar fotos si se proporcionaron

@@ -7,13 +7,7 @@ import { categoryAPI } from '../services/api';
 function CategoriasPage() {
   const [backendCategories, setBackendCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const trendingCategories = [
-    { name: 'Celulares iPhone', count: 2345 },
-    { name: 'Laptops Gaming', count: 1890 },
-    { name: 'Muebles de Sala', count: 1567 },
-    { name: 'Bicicletas', count: 1234 },
-    { name: 'PlayStation', count: 1123 },
-  ];
+ 
 
   // Cargar categorías del backend
   useEffect(() => {
