@@ -358,4 +358,45 @@ export const categoryAPI = {
   }
 };
 
+// API para Notificaciones
+export const notificationAPI = {
+  // Obtener todas las notificaciones del usuario autenticado
+  getNotifications: async () => {
+    const response = await api.get('/notifications');
+    return response.data;
+  },
+
+  // Marcar una notificación como leída
+  markAsRead: async (notificationId) => {
+    const response = await api.put(`/notifications/${notificationId}`, {
+      isRead: true
+    });
+    return response.data;
+  },
+
+  // Eliminar una notificación específica
+  deleteNotification: async (notificationId) => {
+    const response = await api.delete(`/notifications/${notificationId}`);
+    return response.data;
+  },
+
+  // Marcar todas las notificaciones como leídas
+  markAllAsRead: async () => {
+    const response = await api.put('/notifications/mark-all-read');
+    return response.data;
+  },
+
+  // Eliminar todas las notificaciones leídas
+  deleteAllRead: async () => {
+    const response = await api.delete('/notifications/read');
+    return response.data;
+  },
+
+  // Obtener tipos de notificación
+  getTypes: async () => {
+    const response = await api.get('/notifications/types');
+    return response.data;
+  }
+};
+
 export default api;
