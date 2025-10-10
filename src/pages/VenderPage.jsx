@@ -19,7 +19,6 @@ function VenderPage() {
     subcategory: '',
     location: '',
     locationCoords: null,
-    condition: 'usado',
     images: []
   });
 
@@ -57,7 +56,7 @@ function VenderPage() {
   const handleCategoryChange = (categoryValue) => {
     setFormData({
       ...formData,
-      category: categoryValue,
+      category: parseInt(categoryValue), // Convertir a integer desde el inicio
       subcategory: '' // Reset subcategory cuando cambia la categoría
     });
   };
@@ -89,19 +88,53 @@ function VenderPage() {
       showNotification('error', 'Por favor selecciona una categoría');
       return;
     }
+    
+    // Si la categoría seleccionada tiene subcategorías, debe elegirse una subcategoría
+    const selectedCategory = backendCategories.find(cat => cat.id === formData.category);
+    if (selectedCategory?.subcategories?.length > 0 && !formData.subcategory) {
+      showNotification('error', 'Por favor selecciona una subcategoría');
+      return;
+    }
+    if (formData.images.length === 0) {
+      showNotification('error', 'Por favor agrega al menos una imagen de tu producto');
+      return;
+    }
 
     setLoading(true);
     
     try {
+      // Preparar datos del producto en el formato exacto esperado por el backend
       const productData = {
-        title: formData.title,
-        description: formData.description,
+        // No enviamos sellerId - el backend lo obtiene del token
+        title: formData.title.trim(),
+        description: formData.description.trim() || '',
+        location: formData.location ? 
+          (typeof formData.location === 'string' ? formData.location : 
+           `${formData.location.state || ''}, ${formData.location.city || ''}, ${formData.location.neighborhood || ''}`.replace(/^, |, $|, , /g, '')) 
+          : '',
+        locationCoords: JSON.stringify({
+          lat: formData.locationCoords?.lat || null,
+          lng: formData.locationCoords?.lng || null
+        }), // Backend espera string JSON, no objeto
         price: parseFloat(formData.price),
-        categoryId: formData.subcategory || formData.category, // Usar subcategoría si existe, sino categoría principal
-        location: formData.location || '',
-        locationCoords: formData.locationCoords || {}
+        categoryId: formData.subcategory || formData.category, // Ya son integers
+        status: 'active'
       };
 
+      // Validación adicional antes de enviar
+      if (!productData.categoryId || isNaN(productData.categoryId)) {
+        showNotification('error', 'Error: Categoría inválida');
+        return;
+      }
+      if (!productData.price || isNaN(productData.price) || productData.price <= 0) {
+        showNotification('error', 'Error: Precio inválido');
+        return;
+      }
+      if (!productData.title || productData.title.length < 3) {
+        showNotification('error', 'Error: Título debe tener al menos 3 caracteres');
+        return;
+      }
+      
       const result = await productAPI.createWithPhotos(productData, formData.images);
       console.log('Producto creado:', result);
       
@@ -116,7 +149,6 @@ function VenderPage() {
         subcategory: '',
         location: '',
         locationCoords: null,
-        condition: 'usado',
         images: []
       });
       
@@ -143,7 +175,7 @@ function VenderPage() {
     setFormData({ ...formData, images: [...formData.images, ...files] });
   };
 
-  const selectedCategoryData = backendCategories.find(cat => cat.id === formData.category);
+  const selectedCategoryData = backendCategories.find(cat => parseInt(cat.id) === parseInt(formData.category));
   const subcategories = selectedCategoryData ? selectedCategoryData.subcategories : [];
 
   return (
@@ -173,7 +205,7 @@ function VenderPage() {
                   type="button"
                   onClick={() => handleCategoryChange(cat.id)}
                   className={`p-4 rounded-xl border-2 transition-all ${
-                    formData.category === cat.id
+                    formData.category === parseInt(cat.id)
                       ? 'border-orange-500 bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
@@ -201,9 +233,9 @@ function VenderPage() {
                     <button
                       key={sub.id}
                       type="button"
-                      onClick={() => setFormData({ ...formData, subcategory: sub.id })}
+                      onClick={() => setFormData({ ...formData, subcategory: parseInt(sub.id) })}
                       className={`px-5 py-3 rounded-xl text-sm font-semibold transition-all ${
-                        formData.subcategory === sub.id
+                        formData.subcategory === parseInt(sub.id)
                           ? 'bg-orange-500 text-white shadow-lg transform scale-105'
                           : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:shadow-md'
                       }`}
@@ -251,40 +283,21 @@ function VenderPage() {
             />
           </div>
 
-          {/* Precio y Condición */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-lg font-bold text-gray-900 mb-2">
-                Precio (USD) *
-              </label>
-              <div className="relative">
-                <FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="number"
-                  required
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-lg font-bold text-gray-900 mb-2">
-                Condición *
-              </label>
-              <select
+          {/* Precio */}
+          <div className="mb-6">
+            <label className="block text-lg font-bold text-gray-900 mb-2">
+              Precio (USD) *
+            </label>
+            <div className="relative">
+              <FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="number"
                 required
-                value={formData.condition}
-                onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
-              >
-                <option value="nuevo">Nuevo</option>
-                <option value="usado">Usado - Como nuevo</option>
-                <option value="usado-bueno">Usado - Buen estado</option>
-                <option value="usado-regular">Usado - Estado regular</option>
-              </select>
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                placeholder="0.00"
+                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
+              />
             </div>
           </div>
 

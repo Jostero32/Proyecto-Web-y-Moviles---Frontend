@@ -8,9 +8,6 @@ export { API_BASE_URL };
 // Crear instancia de axios con configuración base
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   timeout: 30000, // 30 segundos de timeout (aumentado para manejar imágenes)
 });
 
@@ -75,6 +72,12 @@ api.interceptors.request.use(
       // Renovar expiración en cada request (sliding expiration)
       cookieUtils.refreshSession();
     }
+    
+    // Establecer Content-Type solo si no es FormData
+    if (!config.data || !(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -245,30 +248,53 @@ export const productAPI = {
   },
 
   createWithPhotos: async (productData, photos) => {
-    const formData = new FormData();
-    
-    // Agregar datos del producto
-    formData.append('title', productData.title);
-    formData.append('description', productData.description);
-    formData.append('price', productData.price);
-    formData.append('categoryId', productData.categoryId);
-    formData.append('location', productData.location || '');
-    formData.append('locationCoords', JSON.stringify(productData.locationCoords || {}));
-    formData.append('status', 'active');
-    
-    // Agregar fotos
+    // Preparar datos en el formato exacto esperado por el backend
+    const productPayload = {
+      // No incluir sellerId - el backend lo obtiene del token
+      title: productData.title,
+      description: productData.description || '',
+      location: productData.location || '',
+      locationCoords: productData.locationCoords, // Ya viene como string JSON
+      price: parseFloat(productData.price),
+      categoryId: productData.categoryId, // Ya viene como integer
+      status: productData.status || 'active'
+    };
+
+    // Si hay fotos, usar FormData
     if (photos && photos.length > 0) {
+      const formData = new FormData();
+      
+      // Enviar cada campo del producto por separado (no como JSON)
+      formData.append('title', productPayload.title);
+      formData.append('description', productPayload.description);
+      formData.append('location', productPayload.location);
+      formData.append('locationCoords', productPayload.locationCoords);
+      formData.append('price', productPayload.price);
+      formData.append('categoryId', productPayload.categoryId);
+      formData.append('status', productPayload.status);
+      
+      // Agregar fotos
       photos.forEach((photo) => {
         formData.append('photos', photo);
       });
+
+      try {
+        const response = await api.post('/products', formData);
+        return response.data;
+      } catch (error) {
+        console.error('Error al crear producto con fotos:', error);
+        throw error;
+      }
+    } else {
+      // Sin fotos, enviar como JSON puro
+      try {
+        const response = await api.post('/products', productPayload);
+        return response.data;
+      } catch (error) {
+        console.error('Error al crear producto sin fotos:', error);
+        throw error;
+      }
     }
-    
-    const response = await api.post('/products', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
   },
 
   getMyProducts: async () => {
