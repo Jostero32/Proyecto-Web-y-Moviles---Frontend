@@ -1,35 +1,42 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUpload, FiDollarSign, FiMapPin, FiTag } from 'react-icons/fi';
-import { HiDevicePhoneMobile, HiHomeModern, HiShoppingBag, HiTrophy } from 'react-icons/hi2';
-import { IoGameController, IoCarSport } from 'react-icons/io5';
+import LocationPicker from '../components/common/LocationPicker';
+import { categoriesData, getSubcategories } from '../data/categories';
 
 function VenderPage() {
   const navigate = useNavigate();
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     price: '',
     category: '',
+    subcategory: '',
     location: '',
+    locationCoords: null,
     condition: 'usado',
     images: []
   });
 
-  const categories = [
-    { value: 'tecnologia', label: 'Tecnología', icon: HiDevicePhoneMobile, color: '#CF5C36' },
-    { value: 'hogar', label: 'Casa y Hogar', icon: HiHomeModern, color: '#EFC88B' },
-    { value: 'ropa', label: 'Ropa y Moda', icon: HiShoppingBag, color: '#7C7C7C' },
-    { value: 'deportes', label: 'Deportes', icon: HiTrophy, color: '#CF5C36' },
-    { value: 'vehiculos', label: 'Carros y Motos', icon: IoCarSport, color: '#EFC88B' },
-    { value: 'gaming', label: 'Gaming', icon: IoGameController, color: '#7C7C7C' },
-  ];
+  const handleCategoryChange = (categoryValue) => {
+    setFormData({
+      ...formData,
+      category: categoryValue,
+      subcategory: '' // Reset subcategory cuando cambia la categoría
+    });
+  };
 
-  const locations = ['Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja', 'Machala', 'Riobamba'];
+  const handleLocationSelect = (locationData) => {
+    setFormData({
+      ...formData,
+      location: locationData.address,
+      locationCoords: { lat: locationData.lat, lng: locationData.lng }
+    });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Aquí iría la lógica para enviar al backend
     console.log('Producto a publicar:', formData);
     alert('¡Producto publicado exitosamente! 🎉');
     navigate('/productos');
@@ -39,6 +46,9 @@ function VenderPage() {
     const files = Array.from(e.target.files);
     setFormData({ ...formData, images: [...formData.images, ...files] });
   };
+
+  const selectedCategoryData = categoriesData.find(cat => cat.value === formData.category);
+  const subcategories = selectedCategoryData ? selectedCategoryData.subcategories : [];
 
   return (
     <div className="min-h-screen py-12" style={{ backgroundColor: '#EEE5E9' }}>
@@ -61,11 +71,11 @@ function VenderPage() {
               Categoría *
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {categories.map((cat) => (
+              {categoriesData.map((cat) => (
                 <button
                   key={cat.value}
                   type="button"
-                  onClick={() => setFormData({ ...formData, category: cat.value })}
+                  onClick={() => handleCategoryChange(cat.value)}
                   className={`p-4 rounded-xl border-2 transition-all ${
                     formData.category === cat.value
                       ? 'border-orange-500 bg-orange-50'
@@ -78,6 +88,43 @@ function VenderPage() {
               ))}
             </div>
           </div>
+
+          {/* Subcategoría - Diseño mejorado con badges */}
+          {subcategories.length > 0 && (
+            <div className="mb-8">
+              <label className="block text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <FiTag className="text-orange-500" />
+                Subcategoría *
+              </label>
+              <div className="bg-gray-50 rounded-2xl p-6 border-2 border-gray-200">
+                <p className="text-sm text-gray-600 mb-4">
+                  Selecciona la subcategoría que mejor describa tu producto:
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {subcategories.map((sub) => (
+                    <button
+                      key={sub.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, subcategory: sub.value })}
+                      className={`px-5 py-3 rounded-xl text-sm font-semibold transition-all ${
+                        formData.subcategory === sub.value
+                          ? 'bg-orange-500 text-white shadow-lg transform scale-105'
+                          : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-orange-300 hover:shadow-md'
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
+                </div>
+                {!formData.subcategory && (
+                  <p className="text-sm text-orange-600 mt-3 flex items-center gap-1">
+                    <FiTag className="text-xs" />
+                    Por favor selecciona una subcategoría
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Título */}
           <div className="mb-6">
@@ -146,24 +193,39 @@ function VenderPage() {
             </div>
           </div>
 
-          {/* Ubicación */}
+          {/* Ubicación con Mapa */}
           <div className="mb-6">
             <label className="block text-lg font-bold text-gray-900 mb-2">
               Ubicación *
             </label>
-            <div className="relative">
-              <FiMapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <select
-                required
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none transition-colors"
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowLocationPicker(true)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl hover:border-orange-500 transition-colors text-left flex items-center gap-3"
               >
-                <option value="">Selecciona tu ciudad</option>
-                {locations.map((loc) => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
+                <FiMapPin className="text-xl text-gray-400" />
+                <span className={formData.location ? 'text-gray-900' : 'text-gray-400'}>
+                  {formData.location || 'Selecciona tu ubicación en el mapa'}
+                </span>
+              </button>
+
+              {formData.location && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-start gap-2">
+                  <FiMapPin className="text-green-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-green-900">Ubicación confirmada</p>
+                    <p className="text-sm text-green-700">{formData.location}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationPicker(true)}
+                    className="text-sm text-green-600 hover:text-green-700 font-semibold"
+                  >
+                    Cambiar
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -227,9 +289,17 @@ function VenderPage() {
           </ul>
         </div>
       </div>
+
+      {/* Modal de selección de ubicación */}
+      {showLocationPicker && (
+        <LocationPicker
+          onLocationSelect={handleLocationSelect}
+          onClose={() => setShowLocationPicker(false)}
+          initialPosition={formData.locationCoords}
+        />
+      )}
     </div>
   );
 }
 
 export default VenderPage;
-
