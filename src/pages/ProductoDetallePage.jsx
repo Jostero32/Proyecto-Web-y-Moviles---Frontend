@@ -336,11 +336,12 @@ function ProductoDetallePage() {
                 </div>
 
                 {/* Botón de Acción */}
-                <div className="mb-6">
+                <div className="space-y-3 mb-6">
                   {(() => {
                     const currentUser = authAPI.getUserData();
                     const isOwnProduct = currentUser?.id === product?.sellerId;
-                    
+
+                    // Si el producto es del usuario actual
                     if (isOwnProduct) {
                       return (
                         <div className="w-full py-4 bg-gray-100 text-gray-500 font-bold rounded-xl flex items-center justify-center gap-2 border-2 border-dashed border-gray-300">
@@ -349,35 +350,65 @@ function ProductoDetallePage() {
                         </div>
                       );
                     }
-                    
+
+                    // Si el usuario no está autenticado
                     if (!authAPI.isAuthenticated()) {
                       return (
                         <button
                           onClick={() => navigate('/login')}
                           className="w-full py-4 text-white font-bold rounded-xl transition-all hover:opacity-90 shadow-lg flex items-center justify-center gap-2"
-                          style={{ backgroundColor: '#CF5C36' }}>
+                          style={{ backgroundColor: '#CF5C36' }}
+                        >
                           <FiMessageCircle className="text-xl" />
                           Iniciar sesión para contactar
                         </button>
                       );
                     }
-                    
+
+                    // Si el usuario está autenticado y el producto no es suyo
                     return (
-                      <button
-                        onClick={handleContactVendor}
-                        disabled={contactingVendor}
-                        className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
-                          contactingVendor 
-                            ? 'opacity-50 cursor-not-allowed' 
-                            : 'hover:opacity-90'
-                        }`}
-                        style={{ backgroundColor: '#CF5C36' }}>
-                        <FiMessageCircle className={`text-xl ${contactingVendor ? 'animate-pulse' : ''}`} />
-                        {contactingVendor ? 'Iniciando chat...' : 'Contactar vendedor'}
-                      </button>
+                      <>
+                        <button
+                          onClick={handleContactVendor}
+                          disabled={contactingVendor}
+                          className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                            contactingVendor
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'hover:opacity-90'
+                          }`}
+                          style={{ backgroundColor: '#CF5C36' }}
+                        >
+                          <FiMessageCircle
+                            className={`text-xl ${
+                              contactingVendor ? 'animate-pulse' : ''
+                            }`}
+                          />
+                          {contactingVendor ? 'Iniciando chat...' : 'Contactar vendedor'}
+                        </button>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setIsFavorite(!isFavorite)}
+                            className={`flex-1 py-3 border-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                              isFavorite
+                                ? 'border-red-500 text-red-500 bg-red-50'
+                                : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                            }`}
+                          >
+                            <FiHeart className={isFavorite ? 'fill-red-500' : ''} />
+                            {isFavorite ? 'Guardado' : 'Guardar'}
+                          </button>
+
+                          <button className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 transition-all flex items-center justify-center gap-2">
+                            <FiShare2 />
+                            Compartir
+                          </button>
+                        </div>
+                      </>
                     );
                   })()}
                 </div>
+
 
                 {/* Info del Vendedor */}
                 <div className="pt-6 border-t">
