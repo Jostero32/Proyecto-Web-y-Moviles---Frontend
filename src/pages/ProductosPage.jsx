@@ -7,11 +7,13 @@ import { MdVerified } from 'react-icons/md';
 import { productAPI, categoryAPI, favoriteAPI, authAPI } from '../services/api';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
+import Modal from '../components/common/Modal';
 
 // Componente ProductCard con funcionalidad de favoritos
 function ProductCard({ product }) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [modalData, setModalData] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
 
   // Verificar si el producto está en favoritos al cargar el componente
   useEffect(() => {
@@ -36,10 +38,18 @@ function ProductCard({ product }) {
     try {
       // Verificar si el usuario está autenticado
       if (!authAPI.isAuthenticated()) {
-        // Mostrar notificación más amigable
-        if (window.confirm('Debes iniciar sesión para marcar productos como favoritos. ¿Quieres ir a la página de login?')) {
-          window.location.href = '/login';
-        }
+        // Mostrar modal de login
+        setModalData({
+          isOpen: true,
+          type: 'login',
+          title: 'Iniciar Sesión Requerido',
+          message: 'Debes iniciar sesión para marcar productos como favoritos. ¿Quieres ir a la página de login?',
+          onConfirm: () => {
+            window.location.href = '/login';
+          },
+          confirmText: 'Ir a Login',
+          cancelText: 'Cancelar'
+        });
         return;
       }
 
@@ -66,7 +76,13 @@ function ProductCard({ product }) {
         }
       }
       
-      alert('Error al actualizar favoritos. Inténtalo de nuevo.');
+      setModalData({
+        isOpen: true,
+        type: 'error',
+        title: 'Error',
+        message: 'Error al actualizar favoritos. Inténtalo de nuevo.',
+        confirmText: 'Entendido'
+      });
     } finally {
       setFavoriteLoading(false);
     }
@@ -83,58 +99,72 @@ function ProductCard({ product }) {
   const imageUrl = getProductImage(product);
 
   return (
-    <Link
-      to={`/producto/${product.id}`}
-      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
-    >
-      <div className="relative">
-        {imageUrl ? (
-          <img
-            src={`http://localhost:8080${imageUrl}`}
-            alt={product.title}
-            className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
-            <span className="text-gray-400 text-4xl">📦</span>
-          </div>
-        )}
-        
-        {/* Botón de favorito */}
-        <button
-          onClick={handleToggleFavorite}
-          disabled={favoriteLoading}
-          className={`absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg hover:scale-110 ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <FiHeart className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
-        </button>
-        
-        <div className="absolute bottom-3 left-3">
-          <span className="inline-block px-2 py-1 bg-orange-500/90 text-white text-xs rounded-full font-semibold">
-            ${product.price}
-          </span>
-        </div>
-      </div>
-      <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
-          {product.title}
-        </h3>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-          {product.description}
-        </p>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-gray-500 text-sm">
-            <FiMapPin className="w-4 h-4 mr-1" />
-            <span className="truncate">{product.location}</span>
-          </div>
-          {product.User && (
-            <div className="flex items-center text-green-600">
-              <MdVerified className="w-4 h-4" />
+    <>
+      <Link
+        to={`/producto/${product.id}`}
+        className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
+      >
+        <div className="relative">
+          {imageUrl ? (
+            <img
+              src={`http://localhost:8080${imageUrl}`}
+              alt={product.title}
+              className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
+              <span className="text-gray-400 text-4xl">📦</span>
             </div>
           )}
+          
+          {/* Botón de favorito */}
+          <button
+            onClick={handleToggleFavorite}
+            disabled={favoriteLoading}
+            className={`absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg hover:scale-110 ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <FiHeart className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
+          </button>
+          
+          <div className="absolute bottom-3 left-3">
+            <span className="inline-block px-2 py-1 bg-orange-500/90 text-white text-xs rounded-full font-semibold">
+              ${product.price}
+            </span>
+          </div>
         </div>
-      </div>
-    </Link>
+        <div className="p-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
+            {product.title}
+          </h3>
+          <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+            {product.description}
+          </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center text-gray-500 text-sm">
+              <FiMapPin className="w-4 h-4 mr-1" />
+              <span className="truncate">{product.location}</span>
+            </div>
+            {product.User && (
+              <div className="flex items-center text-green-600">
+                <MdVerified className="w-4 h-4" />
+              </div>
+            )}
+          </div>
+        </div>
+      </Link>
+
+      {/* Modal para notificaciones */}
+      <Modal
+        isOpen={modalData.isOpen}
+        onClose={() => setModalData({ ...modalData, isOpen: false })}
+        type={modalData.type}
+        title={modalData.title}
+        message={modalData.message}
+        onConfirm={modalData.onConfirm}
+        confirmText={modalData.confirmText}
+        cancelText={modalData.cancelText}
+      />
+    </>
   );
 }
 

@@ -23,6 +23,7 @@ import { MdVerified, MdSecurity, MdDashboard } from 'react-icons/md';
 import { useState, useEffect } from 'react';
 import { productAPI, categoryAPI, favoriteAPI, authAPI } from '../services/api';
 import AuthLink from '../components/common/AuthLink';
+import Modal from '../components/common/Modal';
 
 // Categorías estáticas con iconos (fuera del componente para evitar re-renders)
 const categoryIcons = [
@@ -78,6 +79,7 @@ function FeatureCard({ icon: Icon, title, description, color }) {
 function ProductCard({ productId, image, title, price, location, isNew, verified, isImageUrl = false }) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [modalData, setModalData] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
 
   // Verificar si el producto está en favoritos al cargar el componente
   useEffect(() => {
@@ -102,10 +104,18 @@ function ProductCard({ productId, image, title, price, location, isNew, verified
     try {
       // Verificar si el usuario está autenticado
       if (!authAPI.isAuthenticated()) {
-        // Mostrar notificación más amigable
-        if (window.confirm('Debes iniciar sesión para marcar productos como favoritos. ¿Quieres ir a la página de login?')) {
-          window.location.href = '/login';
-        }
+        // Mostrar modal de login
+        setModalData({
+          isOpen: true,
+          type: 'login',
+          title: 'Iniciar Sesión Requerido',
+          message: 'Debes iniciar sesión para marcar productos como favoritos. ¿Quieres ir a la página de login?',
+          onConfirm: () => {
+            window.location.href = '/login';
+          },
+          confirmText: 'Ir a Login',
+          cancelText: 'Cancelar'
+        });
         return;
       }
 
@@ -132,68 +142,88 @@ function ProductCard({ productId, image, title, price, location, isNew, verified
         }
       }
       
-      alert('Error al actualizar favoritos. Inténtalo de nuevo.');
+      setModalData({
+        isOpen: true,
+        type: 'error',
+        title: 'Error',
+        message: 'Error al actualizar favoritos. Inténtalo de nuevo.',
+        confirmText: 'Entendido'
+      });
     } finally {
       setFavoriteLoading(false);
     }
   };
 
   return (
-    <Link to={`/producto/${productId}`} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
-      <div className="relative">
-        {isImageUrl ? (
-          <img 
-            src={image} 
-            alt={title}
-            className="aspect-square w-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl group-hover:scale-105 transition-transform duration-500">
-            {image}
+    <>
+      <Link to={`/producto/${productId}`} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
+        <div className="relative">
+          {isImageUrl ? (
+            <img 
+              src={image} 
+              alt={title}
+              className="aspect-square w-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-7xl group-hover:scale-105 transition-transform duration-500">
+              {image}
+            </div>
+          )}
+
+          {/* Badges */}
+          <div className="absolute top-3 left-3 flex flex-col gap-2">
+            {isNew && (
+              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+                <HiSparkles className="text-sm" />
+                NUEVO
+              </span>
+            )}
+            {verified && (
+              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-full shadow-lg">
+                <MdVerified className="text-sm" />
+                Verificado
+              </span>
+            )}
           </div>
-        )}
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
-          {isNew && (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
-              <HiSparkles className="text-sm" />
-              NUEVO
+          {/* Botón de favorito */}
+          <button
+            onClick={handleToggleFavorite}
+            disabled={favoriteLoading}
+            className={`absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg hover:scale-110 ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <FiHeart className={`text-xl ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-700'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
+          </button>
+        </div>
+
+        <div className="p-5">
+          <h3 className="font-semibold text-gray-900 mb-3 group-hover:text-orange-600 transition-colors line-clamp-2 min-h-[3rem]">
+            {title}
+          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-3xl font-black" style={{ color: '#CF5C36' }}>
+              ${price}
             </span>
-          )}
-          {verified && (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-full shadow-lg">
-              <MdVerified className="text-sm" />
-              Verificado
-            </span>
-          )}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <FiMapPin className="text-base flex-shrink-0" />
+            <span className="truncate">{location}</span>
+          </div>
         </div>
+      </Link>
 
-        {/* Botón de favorito */}
-        <button
-          onClick={handleToggleFavorite}
-          disabled={favoriteLoading}
-          className={`absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg hover:scale-110 ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <FiHeart className={`text-xl ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-700'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
-        </button>
-      </div>
-
-      <div className="p-5">
-        <h3 className="font-semibold text-gray-900 mb-3 group-hover:text-orange-600 transition-colors line-clamp-2 min-h-[3rem]">
-          {title}
-        </h3>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-3xl font-black" style={{ color: '#CF5C36' }}>
-            ${price}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <FiMapPin className="text-base flex-shrink-0" />
-          <span className="truncate">{location}</span>
-        </div>
-      </div>
-    </Link>
+      {/* Modal para notificaciones */}
+      <Modal
+        isOpen={modalData.isOpen}
+        onClose={() => setModalData({ ...modalData, isOpen: false })}
+        type={modalData.type}
+        title={modalData.title}
+        message={modalData.message}
+        onConfirm={modalData.onConfirm}
+        confirmText={modalData.confirmText}
+        cancelText={modalData.cancelText}
+      />
+    </>
   );
 }
 

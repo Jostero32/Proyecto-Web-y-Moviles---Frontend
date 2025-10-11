@@ -4,12 +4,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { FiHeart, FiTrash2, FiMapPin, FiEye, FiShoppingBag, FiLoader } from 'react-icons/fi';
 import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
+import Modal from '../components/common/Modal';
 
 function FavoritosPage() {
   const [favoritos, setFavoritos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [modalData, setModalData] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
   const navigate = useNavigate();
 
   // Función para obtener favoritos del backend
@@ -104,44 +106,86 @@ function FavoritosPage() {
 
   // Función para eliminar un favorito específico
   const eliminarFavorito = async (productId, titulo) => {
-    if (!window.confirm(`¿Quitar "${titulo}" de favoritos?`)) {
-      return;
-    }
-
-    try {
-      console.log('Removing favorite:', productId);
-      await favoriteAPI.removeFavorite(productId);
-      
-      // Actualizar estado local
-      setFavoritos(prev => prev.filter(fav => fav.id !== productId));
-      console.log('Favorite removed successfully');
-      
-    } catch (error) {
-      console.error('Error removing favorite:', error);
-      alert('Error al eliminar favorito. Inténtalo de nuevo.');
-    }
+    setModalData({
+      isOpen: true,
+      type: 'confirm',
+      title: 'Quitar de Favoritos',
+      message: `¿Estás seguro de que quieres quitar "${titulo}" de tus favoritos?`,
+      onConfirm: async () => {
+        try {
+          console.log('Removing favorite:', productId);
+          await favoriteAPI.removeFavorite(productId);
+          
+          // Actualizar estado local
+          setFavoritos(prev => prev.filter(fav => fav.id !== productId));
+          console.log('Favorite removed successfully');
+          
+          // Mostrar mensaje de éxito
+          setModalData({
+            isOpen: true,
+            type: 'success',
+            title: 'Favorito Eliminado',
+            message: 'El producto ha sido eliminado de tus favoritos exitosamente.',
+            confirmText: 'Entendido'
+          });
+          
+        } catch (error) {
+          console.error('Error removing favorite:', error);
+          setModalData({
+            isOpen: true,
+            type: 'error',
+            title: 'Error',
+            message: 'Error al eliminar favorito. Inténtalo de nuevo.',
+            confirmText: 'Entendido'
+          });
+        }
+      },
+      confirmText: 'Quitar',
+      cancelText: 'Cancelar'
+    });
   };
 
   // Función para eliminar todos los favoritos
   const eliminarTodos = async () => {
-    if (!window.confirm('¿Eliminar todos los favoritos?')) {
-      return;
-    }
-
-    try {
-      // Eliminar uno por uno ya que no hay endpoint para eliminar todos
-      const deletePromises = favoritos.map(fav => favoriteAPI.removeFavorite(fav.id));
-      await Promise.all(deletePromises);
-      
-      setFavoritos([]);
-      console.log('All favorites removed successfully');
-      
-    } catch (error) {
-      console.error('Error removing all favorites:', error);
-      alert('Error al eliminar favoritos. Inténtalo de nuevo.');
-      // Recargar para sincronizar estado
-      fetchFavoritos();
-    }
+    setModalData({
+      isOpen: true,
+      type: 'warning',
+      title: 'Eliminar Todos los Favoritos',
+      message: `¿Estás seguro de que quieres eliminar todos los ${favoritos.length} favoritos? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        try {
+          // Eliminar uno por uno ya que no hay endpoint para eliminar todos
+          const deletePromises = favoritos.map(fav => favoriteAPI.removeFavorite(fav.id));
+          await Promise.all(deletePromises);
+          
+          setFavoritos([]);
+          console.log('All favorites removed successfully');
+          
+          // Mostrar mensaje de éxito
+          setModalData({
+            isOpen: true,
+            type: 'success',
+            title: 'Favoritos Eliminados',
+            message: 'Todos los favoritos han sido eliminados exitosamente.',
+            confirmText: 'Entendido'
+          });
+          
+        } catch (error) {
+          console.error('Error removing all favorites:', error);
+          setModalData({
+            isOpen: true,
+            type: 'error',
+            title: 'Error',
+            message: 'Error al eliminar favoritos. Inténtalo de nuevo.',
+            confirmText: 'Entendido'
+          });
+          // Recargar para sincronizar estado
+          fetchFavoritos();
+        }
+      },
+      confirmText: 'Eliminar Todos',
+      cancelText: 'Cancelar'
+    });
   };
 
   // Componente de loading
@@ -313,6 +357,18 @@ function FavoritosPage() {
           </div>
         )}
       </div>
+
+      {/* Modal para notificaciones */}
+      <Modal
+        isOpen={modalData.isOpen}
+        onClose={() => setModalData({ ...modalData, isOpen: false })}
+        type={modalData.type}
+        title={modalData.title}
+        message={modalData.message}
+        onConfirm={modalData.onConfirm}
+        confirmText={modalData.confirmText}
+        cancelText={modalData.cancelText}
+      />
     </div>
   );
 }
