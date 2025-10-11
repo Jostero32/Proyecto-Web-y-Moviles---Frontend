@@ -429,4 +429,123 @@ export const messageAPI = {
   }
 };
 
+// ====== API de Favoritos ======
+// Cache para evitar múltiples llamadas
+let favoritesCache = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 30000; // 30 segundos
+
+export const favoriteAPI = {
+  // Obtener todos los favoritos del usuario
+  getUserFavorites: async (useCache = true) => {
+    const now = Date.now();
+    
+    // Usar cache si está disponible y es reciente
+    if (useCache && favoritesCache && (now - cacheTimestamp < CACHE_DURATION)) {
+      console.log('Using cached favorites');
+      return favoritesCache;
+    }
+    
+    console.log('Making fresh request to GET /favorites');
+    const response = await api.get('/favorites');
+    console.log('getUserFavorites response:', response.data);
+    
+    // Verificar estructura de respuesta
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      console.log('Sample favorite structure:', response.data[0]);
+      console.log('Available keys in favorite:', Object.keys(response.data[0]));
+    }
+    
+    // Actualizar cache
+    favoritesCache = response.data;
+    cacheTimestamp = now;
+    
+    return response.data;
+  },
+
+  // Limpiar cache cuando se modifica un favorito
+  clearCache: () => {
+    favoritesCache = null;
+    cacheTimestamp = 0;
+  },
+
+  // Agregar producto a favoritos
+  addFavorite: async (productId) => {
+    console.log('API addFavorite called with productId:', productId, 'type:', typeof productId);
+    
+    // Asegurar que productId es un número
+    const numericProductId = parseInt(productId);
+    if (isNaN(numericProductId)) {
+      throw new Error(`Invalid productId: ${productId}`);
+    }
+    
+    const payload = { productId: numericProductId };
+    console.log('Sending payload to POST /favorites:', payload);
+    
+    const response = await api.post('/favorites', payload);
+    console.log('addFavorite response:', response.data);
+    
+    // Limpiar cache para forzar refetch
+    favoriteAPI.clearCache();
+    
+    return response.data;
+  },
+
+  // Eliminar producto de favoritos
+  removeFavorite: async (productId) => {
+    console.log('API removeFavorite called with productId:', productId);
+    
+    const numericProductId = parseInt(productId);
+    if (isNaN(numericProductId)) {
+      throw new Error(`Invalid productId: ${productId}`);
+    }
+    
+    const response = await api.delete(`/favorites/${numericProductId}`);
+    console.log('removeFavorite response:', response.data);
+    
+    // Limpiar cache para forzar refetch
+    favoriteAPI.clearCache();
+    
+    return response.data;
+  },
+
+  // Verificar si un producto está en favoritos
+  isFavorite: async (productId) => {
+    try {
+      console.log('Checking if product is favorite:', productId);
+      const favorites = await favoriteAPI.getUserFavorites();
+      console.log('User favorites raw data:', favorites);
+      
+      // Verificar estructura de datos
+      if (favorites.length > 0) {
+        console.log('First favorite structure:', favorites[0]);
+        console.log('Available keys:', Object.keys(favorites[0]));
+      }
+      
+      const numericProductId = parseInt(productId);
+      console.log('Looking for productId:', numericProductId, 'type:', typeof numericProductId);
+      
+      // Intentar diferentes formas de comparar basado en la estructura del backend
+      const isFav = favorites.some(favorite => {
+        // Pueden ser diferentes estructuras según el swagger
+        const backendProductId = favorite.productId || favorite.Product?.id;
+        const backendProductIdNum = parseInt(backendProductId);
+        
+        console.log('Comparing backend productId:', backendProductId, 'parsed:', backendProductIdNum, 'vs target:', numericProductId);
+        return backendProductIdNum === numericProductId;
+      });
+      
+      console.log(`Product ${numericProductId} is favorite:`, isFav);
+      return isFav;
+    } catch (error) {
+      console.error('Error verificando favorito:', error);
+      // Si el usuario no está autenticado, devolver false sin error
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        return false;
+      }
+      return false;
+    }
+  }
+};
+
 export default api;

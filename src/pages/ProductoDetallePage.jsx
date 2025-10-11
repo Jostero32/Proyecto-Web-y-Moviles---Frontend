@@ -1,12 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  FiMapPin, FiChevronLeft, FiMessageCircle
+  FiMapPin, 
+  FiChevronLeft, 
+  FiMessageCircle, 
+  FiHeart, 
+  FiShare2
 } from 'react-icons/fi';
 import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
-import { productAPI, categoryAPI, userAPI, conversationAPI, authAPI, API_BASE_URL } from '../services/api';
+import { 
+  productAPI, 
+  categoryAPI, 
+  userAPI, 
+  conversationAPI, 
+  authAPI, 
+  favoriteAPI, 
+  API_BASE_URL 
+} from '../services/api';
 
+// Componente para mostrar detalles del producto con funcionalidad de favoritos
 function ProductoDetallePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -15,6 +28,8 @@ function ProductoDetallePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [contactingVendor, setContactingVendor] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -91,6 +106,16 @@ function ProductoDetallePage() {
         };
         
         setProduct(mappedProduct);
+
+        // Verificar si el producto está en favoritos (solo si el usuario está autenticado)
+        if (authAPI.isAuthenticated()) {
+          try {
+            const isFav = await favoriteAPI.isFavorite(id);
+            setIsFavorite(isFav);
+          } catch (error) {
+            console.error('Error verificando favorito:', error);
+          }
+        }
       } catch (error) {
         console.error('Error cargando producto:', error);
         setError('Error al cargar el producto');
@@ -154,6 +179,62 @@ function ProductoDetallePage() {
       alert('Error al iniciar conversación. Inténtalo de nuevo.');
     } finally {
       setContactingVendor(false);
+    }
+  };
+
+  // Función para manejar favoritos
+  const handleToggleFavorite = async () => {
+    try {
+      // Verificar si el usuario está autenticado
+      if (!authAPI.isAuthenticated()) {
+        navigate('/login');
+        return;
+      }
+
+      setFavoriteLoading(true);
+
+      const productId = parseInt(id);
+      console.log('Toggling favorite for product:', productId, 'Current state:', isFavorite);
+
+      if (isFavorite) {
+        // Quitar de favoritos
+        console.log('Removing from favorites...');
+        await favoriteAPI.removeFavorite(productId);
+        setIsFavorite(false);
+        console.log('Removed successfully');
+      } else {
+        // Agregar a favoritos  
+        console.log('Adding to favorites...');
+        await favoriteAPI.addFavorite(productId);
+        setIsFavorite(true);
+        console.log('Added successfully');
+      }
+    } catch (error) {
+      console.error('Error al manejar favorito:', error);
+      console.error('Error response:', error.response?.data);
+      
+      // Manejar casos específicos
+      if (error.response?.status === 400) {
+        const errorMsg = error.response?.data?.message || '';
+        
+        if (errorMsg.includes('ya está en favoritos') || errorMsg.includes('already')) {
+          // El producto ya está en favoritos, actualizar estado local
+          console.log('Product already in favorites, updating local state');
+          setIsFavorite(true);
+          return;
+        }
+        
+        if (errorMsg.includes('no encontrado') || errorMsg.includes('not found')) {
+          alert('Favorito no encontrado');
+          return;
+        }
+      }
+      
+      // Mostrar mensaje más específico
+      const errorMessage = error.response?.data?.message || 'Error al actualizar favoritos. Inténtalo de nuevo.';
+      alert(errorMessage);
+    } finally {
+      setFavoriteLoading(false);
     }
   };
 
@@ -388,15 +469,16 @@ function ProductoDetallePage() {
 
                         <div className="flex gap-3">
                           <button
-                            onClick={() => setIsFavorite(!isFavorite)}
+                            onClick={handleToggleFavorite}
+                            disabled={favoriteLoading}
                             className={`flex-1 py-3 border-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
                               isFavorite
                                 ? 'border-red-500 text-red-500 bg-red-50'
                                 : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                            }`}
+                            } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
-                            <FiHeart className={isFavorite ? 'fill-red-500' : ''} />
-                            {isFavorite ? 'Guardado' : 'Guardar'}
+                            <FiHeart className={`${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-700'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
+                            {favoriteLoading ? 'Actualizando...' : (isFavorite ? '❤️ Guardado' : '🤍 Guardar')}
                           </button>
 
                           <button className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 transition-all flex items-center justify-center gap-2">

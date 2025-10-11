@@ -21,7 +21,7 @@ import {
 } from 'react-icons/io5';
 import { MdVerified, MdSecurity, MdDashboard } from 'react-icons/md';
 import { useState, useEffect } from 'react';
-import { productAPI, categoryAPI } from '../services/api';
+import { productAPI, categoryAPI, favoriteAPI, authAPI } from '../services/api';
 import AuthLink from '../components/common/AuthLink';
 
 // Categorías estáticas con iconos (fuera del componente para evitar re-renders)
@@ -75,11 +75,71 @@ function FeatureCard({ icon: Icon, title, description, color }) {
   );
 }
 
-function ProductCard({ image, title, price, location, isNew, verified, isImageUrl = false }) {
+function ProductCard({ productId, image, title, price, location, isNew, verified, isImageUrl = false }) {
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // Verificar si el producto está en favoritos al cargar el componente
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (authAPI.isAuthenticated() && productId) {
+        try {
+          const isFav = await favoriteAPI.isFavorite(productId);
+          setIsFavorite(isFav);
+        } catch (error) {
+          console.error('Error verificando favorito:', error);
+        }
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [productId]);
+
+  // Función para manejar favoritos
+  const handleToggleFavorite = async (e) => {
+    e.preventDefault(); // Prevenir navegación cuando se hace clic en favoritos
+
+    try {
+      // Verificar si el usuario está autenticado
+      if (!authAPI.isAuthenticated()) {
+        // Mostrar notificación más amigable
+        if (window.confirm('Debes iniciar sesión para marcar productos como favoritos. ¿Quieres ir a la página de login?')) {
+          window.location.href = '/login';
+        }
+        return;
+      }
+
+      setFavoriteLoading(true);
+
+      if (isFavorite) {
+        await favoriteAPI.removeFavorite(productId);
+        setIsFavorite(false);
+      } else {
+        await favoriteAPI.addFavorite(productId);
+        setIsFavorite(true);
+      }
+    } catch (error) {
+      console.error('Error al manejar favorito:', error);
+      
+      // Manejar casos específicos  
+      if (error.response?.status === 400) {
+        const errorMsg = error.response?.data?.message || '';
+        
+        if (errorMsg.includes('ya está en favoritos') || errorMsg.includes('already')) {
+          // El producto ya está en favoritos, actualizar estado local
+          setIsFavorite(true);
+          return;
+        }
+      }
+      
+      alert('Error al actualizar favoritos. Inténtalo de nuevo.');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   return (
-    <Link to="/producto/1" className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
+    <Link to={`/producto/${productId}`} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
       <div className="relative">
         {isImageUrl ? (
           <img 
@@ -111,13 +171,11 @@ function ProductCard({ image, title, price, location, isNew, verified, isImageUr
 
         {/* Botón de favorito */}
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            setIsFavorite(!isFavorite);
-          }}
-          className="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg hover:scale-110"
+          onClick={handleToggleFavorite}
+          disabled={favoriteLoading}
+          className={`absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg hover:scale-110 ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <FiHeart className={`text-xl ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
+          <FiHeart className={`text-xl ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-700'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
         </button>
       </div>
 
@@ -448,7 +506,8 @@ function HomePage() {
                 const imageUrl = getProductImage(product);
                 return (
                   <ProductCard 
-                    key={product.id} 
+                    key={product.id}
+                    productId={product.id}
                     image={imageUrl ? imageUrl : '📦'}
                     title={product.title}
                     price={product.price}

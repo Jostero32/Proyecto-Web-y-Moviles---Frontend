@@ -3,6 +3,7 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
+  Navigate,
   useLocation
 } from 'react-router-dom';
 
@@ -52,6 +53,7 @@ function Main() {
         <Routes>
           {/* Rutas públicas - accesibles sin autenticación */}
           <Route path="/" element={<HomePage />} />
+          <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/productos" element={<ProductosPage />} />

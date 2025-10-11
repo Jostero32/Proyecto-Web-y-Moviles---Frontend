@@ -4,9 +4,139 @@ import {
   FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight
 } from 'react-icons/fi';
 import { MdVerified } from 'react-icons/md';
-import { productAPI, categoryAPI } from '../services/api';
+import { productAPI, categoryAPI, favoriteAPI, authAPI } from '../services/api';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
+
+// Componente ProductCard con funcionalidad de favoritos
+function ProductCard({ product }) {
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // Verificar si el producto está en favoritos al cargar el componente
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (authAPI.isAuthenticated() && product.id) {
+        try {
+          const isFav = await favoriteAPI.isFavorite(product.id);
+          setIsFavorite(isFav);
+        } catch (error) {
+          console.error('Error verificando favorito:', error);
+        }
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [product.id]);
+
+  // Función para manejar favoritos
+  const handleToggleFavorite = async (e) => {
+    e.preventDefault(); // Prevenir navegación cuando se hace clic en favoritos
+
+    try {
+      // Verificar si el usuario está autenticado
+      if (!authAPI.isAuthenticated()) {
+        // Mostrar notificación más amigable
+        if (window.confirm('Debes iniciar sesión para marcar productos como favoritos. ¿Quieres ir a la página de login?')) {
+          window.location.href = '/login';
+        }
+        return;
+      }
+
+      setFavoriteLoading(true);
+
+      if (isFavorite) {
+        await favoriteAPI.removeFavorite(product.id);
+        setIsFavorite(false);
+      } else {
+        await favoriteAPI.addFavorite(product.id);
+        setIsFavorite(true);
+      }
+    } catch (error) {
+      console.error('Error al manejar favorito:', error);
+      
+      // Manejar casos específicos  
+      if (error.response?.status === 400) {
+        const errorMsg = error.response?.data?.message || '';
+        
+        if (errorMsg.includes('ya está en favoritos') || errorMsg.includes('already')) {
+          // El producto ya está en favoritos, actualizar estado local
+          setIsFavorite(true);
+          return;
+        }
+      }
+      
+      alert('Error al actualizar favoritos. Inténtalo de nuevo.');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
+  const getProductImage = (product) => {
+    if (product.ProductPhotos && product.ProductPhotos.length > 0) {
+      const sortedPhotos = product.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
+      return sortedPhotos[0].url;
+    }
+    return null;
+  };
+
+  const imageUrl = getProductImage(product);
+
+  return (
+    <Link
+      to={`/producto/${product.id}`}
+      className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
+    >
+      <div className="relative">
+        {imageUrl ? (
+          <img
+            src={`http://localhost:8080${imageUrl}`}
+            alt={product.title}
+            className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
+            <span className="text-gray-400 text-4xl">📦</span>
+          </div>
+        )}
+        
+        {/* Botón de favorito */}
+        <button
+          onClick={handleToggleFavorite}
+          disabled={favoriteLoading}
+          className={`absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-all shadow-lg hover:scale-110 ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <FiHeart className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
+        </button>
+        
+        <div className="absolute bottom-3 left-3">
+          <span className="inline-block px-2 py-1 bg-orange-500/90 text-white text-xs rounded-full font-semibold">
+            ${product.price}
+          </span>
+        </div>
+      </div>
+      <div className="p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
+          {product.title}
+        </h3>
+        <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+          {product.description}
+        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center text-gray-500 text-sm">
+            <FiMapPin className="w-4 h-4 mr-1" />
+            <span className="truncate">{product.location}</span>
+          </div>
+          {product.User && (
+            <div className="flex items-center text-green-600">
+              <MdVerified className="w-4 h-4" />
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 function ProductosPage() {
   const [searchParams] = useSearchParams();
@@ -78,15 +208,7 @@ function ProductosPage() {
   const priceRanges = ['Todos', '0-100', '100-500', '500-1000', '1000+'];
   const locations = ['Todos', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja'];
 
-  // Función para obtener la primera imagen de un producto
-  const getProductImage = (product) => {
-    if (product.ProductPhotos && product.ProductPhotos.length > 0) {
-      // Ordenar por position y tomar la primera
-      const sortedPhotos = product.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
-      return sortedPhotos[0].url;
-    }
-    return null;
-  };
+
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -229,56 +351,9 @@ function ProductosPage() {
               </button>
             </div>
           ) : (
-            filteredProducts.map((product) => {
-              const imageUrl = getProductImage(product);
-              return (
-                <Link
-                  key={product.id}
-                  to={`/producto/${product.id}`}
-                  className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
-                >
-                  <div className="relative">
-                    {imageUrl ? (
-                      <img
-                        src={`http://localhost:8080${imageUrl}`}
-                        alt={product.title}
-                        className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
-                        <span className="text-gray-400 text-4xl">📦</span>
-                      </div>
-                    )}
-                    <button className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-colors">
-                      <FiHeart className="w-5 h-5 text-gray-600 hover:text-red-500" />
-                    </button>
-                    <div className="absolute bottom-3 left-3">
-                      <span className="inline-block px-2 py-1 bg-orange-500/90 text-white text-xs rounded-full font-semibold">
-                        ${product.price}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2">
-                      {product.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      {product.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center text-gray-500 text-sm">
-                        <FiMapPin className="w-4 h-4 mr-1" />
-                        <span>Quito</span> {/* TODO: usar location real del backend */}
-                      </div>
-                      <div className="flex items-center text-green-600 text-sm">
-                        <MdVerified className="w-4 h-4 mr-1" />
-                        <span>Verificado</span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })
+            filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))
           )}
         </div>
       </div>

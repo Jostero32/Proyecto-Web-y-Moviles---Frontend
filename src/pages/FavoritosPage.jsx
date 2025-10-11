@@ -1,11 +1,97 @@
 import { useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, favoriteAPI, productAPI, API_BASE_URL } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
-import { FiHeart, FiTrash2, FiMapPin, FiEye, FiShoppingBag } from 'react-icons/fi';
+import { FiHeart, FiTrash2, FiMapPin, FiEye, FiShoppingBag, FiLoader } from 'react-icons/fi';
+import { HiSparkles } from 'react-icons/hi2';
+import { MdVerified } from 'react-icons/md';
 
 function FavoritosPage() {
   const [favoritos, setFavoritos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [loadingImages, setLoadingImages] = useState(false);
   const navigate = useNavigate();
+
+  // Función para obtener favoritos del backend
+  const fetchFavoritos = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Fetching user favorites...');
+      const favoritesData = await favoriteAPI.getUserFavorites();
+      console.log('Raw favorites data:', favoritesData);
+      
+      // Cargar imágenes después
+      setLoadingImages(true);
+      
+      // Mapear los datos del backend al formato esperado por el componente
+      const mappedFavoritos = await Promise.all(favoritesData.map(async (favorite) => {
+        console.log('Processing favorite:', favorite);
+        
+        const product = favorite.Product || {};
+        const seller = product.User || {};
+        
+        console.log('Product data:', product);
+        console.log('Product photos from /favorites:', product.ProductPhotos);
+        
+        // Obtener las fotos del producto desde /products/:id ya que /favorites no las incluye
+        let imageUrl = null;
+        try {
+          console.log('Fetching product details for ID:', product.id);
+          const fullProductData = await productAPI.getProductById(product.id);
+          console.log('Full product data from /products:', fullProductData);
+          console.log('Product photos from /products:', fullProductData.ProductPhotos);
+          
+          // Obtener la primera imagen del producto
+          if (fullProductData.ProductPhotos && Array.isArray(fullProductData.ProductPhotos) && fullProductData.ProductPhotos.length > 0) {
+            const sortedPhotos = fullProductData.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
+            const firstPhoto = sortedPhotos[0];
+            console.log('First photo found:', firstPhoto);
+            
+            // Try both 'photo' and 'url' fields
+            const photoFileName = firstPhoto.photo || firstPhoto.url;
+            if (photoFileName) {
+              imageUrl = photoFileName.startsWith('http') 
+                ? photoFileName 
+                : `${API_BASE_URL}${photoFileName.startsWith('/') ? '' : '/'}${photoFileName}`;
+              console.log('Generated image URL:', imageUrl);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching product details for ID:', product.id, error);
+        }
+        
+        const mappedProduct = {
+          id: product.id,
+          titulo: product.title || 'Producto sin título',
+          precio: product.price || 0,
+          imagen: imageUrl,
+          ubicacion: product.location || 'Ubicación no especificada',
+          vendedor: seller.name && seller.lastname ? 
+            `${seller.name} ${seller.lastname}`.trim() : 
+            seller.name || 'Vendedor desconocido',
+          sellerId: seller.id,
+          fechaGuardado: favorite.createdAt || new Date().toISOString(),
+          status: product.status || 'active',
+          isImageUrl: !!imageUrl
+        };
+        
+        console.log('Mapped product with image:', mappedProduct);
+        return mappedProduct;
+      }));
+      
+      console.log('Mapped favorites:', mappedFavoritos);
+      setFavoritos(mappedFavoritos);
+      setLoadingImages(false);
+      
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+      setError('Error al cargar favoritos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!authAPI.isAuthenticated()) {
@@ -13,49 +99,85 @@ function FavoritosPage() {
       return;
     }
 
-    // Simulación de productos favoritos
-    setFavoritos([
-      {
-        id: 1,
-        titulo: 'iPhone 14 Pro Max 128GB',
-        precio: 890,
-        imagen: '📱',
-        ubicacion: 'Quito Centro',
-        vendedor: 'Juan Pérez',
-        fechaGuardado: '2024-01-15'
-      },
-      {
-        id: 2,
-        titulo: 'MacBook Pro M3 512GB',
-        precio: 1850,
-        imagen: '💻',
-        ubicacion: 'Quito Norte',
-        vendedor: 'María García',
-        fechaGuardado: '2024-01-12'
-      },
-      {
-        id: 3,
-        titulo: 'AirPods Pro 2da Gen',
-        precio: 180,
-        imagen: '🎧',
-        ubicacion: 'Quito Sur',
-        vendedor: 'Carlos López',
-        fechaGuardado: '2024-01-10'
-      },
-    ]);
+    fetchFavoritos();
   }, [navigate]);
 
-  const eliminarFavorito = (id, titulo) => {
-    if (window.confirm(`¿Quitar "${titulo}" de favoritos?`)) {
-      setFavoritos(prev => prev.filter(fav => fav.id !== id));
+  // Función para eliminar un favorito específico
+  const eliminarFavorito = async (productId, titulo) => {
+    if (!window.confirm(`¿Quitar "${titulo}" de favoritos?`)) {
+      return;
+    }
+
+    try {
+      console.log('Removing favorite:', productId);
+      await favoriteAPI.removeFavorite(productId);
+      
+      // Actualizar estado local
+      setFavoritos(prev => prev.filter(fav => fav.id !== productId));
+      console.log('Favorite removed successfully');
+      
+    } catch (error) {
+      console.error('Error removing favorite:', error);
+      alert('Error al eliminar favorito. Inténtalo de nuevo.');
     }
   };
 
-  const eliminarTodos = () => {
-    if (window.confirm('¿Eliminar todos los favoritos?')) {
+  // Función para eliminar todos los favoritos
+  const eliminarTodos = async () => {
+    if (!window.confirm('¿Eliminar todos los favoritos?')) {
+      return;
+    }
+
+    try {
+      // Eliminar uno por uno ya que no hay endpoint para eliminar todos
+      const deletePromises = favoritos.map(fav => favoriteAPI.removeFavorite(fav.id));
+      await Promise.all(deletePromises);
+      
       setFavoritos([]);
+      console.log('All favorites removed successfully');
+      
+    } catch (error) {
+      console.error('Error removing all favorites:', error);
+      alert('Error al eliminar favoritos. Inténtalo de nuevo.');
+      // Recargar para sincronizar estado
+      fetchFavoritos();
     }
   };
+
+  // Componente de loading
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="sb-container">
+          <div className="text-center py-12">
+            <FiLoader className="animate-spin text-4xl text-orange-600 mx-auto mb-4" />
+            <p className="text-gray-600">Cargando tus favoritos...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Componente de error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="sb-container">
+          <div className="text-center py-12">
+            <FiHeart className="text-4xl text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Error al cargar favoritos</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={fetchFavoritos}
+              className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold"
+            >
+              Intentar de nuevo
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -86,13 +208,48 @@ function FavoritosPage() {
               <div key={producto.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all group">
                 {/* Imagen del producto */}
                 <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center text-8xl">
-                  {producto.imagen}
+                  {producto.isImageUrl && producto.imagen ? (
+                    <img 
+                      src={producto.imagen} 
+                      alt={producto.titulo}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.log('Image load error for:', producto.imagen);
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'block';
+                      }}
+                    />
+                  ) : null}
+                  
+                  {/* Fallback cuando no hay imagen o falla la carga */}
+                  <span 
+                    className={`text-gray-400 text-6xl ${producto.isImageUrl && producto.imagen ? 'hidden' : 'block'}`}
+                  >
+                    📦
+                  </span>
+                  
+                  {/* Badges de estado */}
+                  <div className="absolute top-3 left-3 flex flex-col gap-2">
+                    {producto.status === 'active' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
+                        <HiSparkles className="text-xs" />
+                        Activo
+                      </span>
+                    )}
+                    {producto.sellerId && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500 text-white text-xs font-bold rounded-full">
+                        <MdVerified className="text-xs" />
+                        Verificado
+                      </span>
+                    )}
+                  </div>
+
                   <button
                     onClick={() => eliminarFavorito(producto.id, producto.titulo)}
-                    className="absolute top-4 right-4 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-red-50 transition-colors group"
+                    className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:bg-red-50 transition-colors group"
                     title="Quitar de favoritos"
                   >
-                    <FiHeart className="text-red-500 fill-red-500 group-hover:scale-110 transition-transform" />
+                    <FiHeart className="w-4 h-4 text-red-500 fill-red-500 group-hover:scale-110 transition-transform" />
                   </button>
                 </div>
 
@@ -101,13 +258,16 @@ function FavoritosPage() {
                   <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2 min-h-[3.5rem]">
                     {producto.titulo}
                   </h3>
-                  <p className="text-orange-600 font-bold text-2xl mb-3">
+                  <p className="font-bold text-2xl mb-3" style={{ color: '#CF5C36' }}>
                     ${producto.precio}
                   </p>
                   <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                    <FiMapPin className="text-orange-600 flex-shrink-0" />
+                    <FiMapPin className="flex-shrink-0" style={{ color: '#CF5C36' }} />
                     <span className="truncate">{producto.ubicacion}</span>
                   </div>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Vendido por: <span className="font-semibold">{producto.vendedor}</span>
+                  </p>
                   <p className="text-sm text-gray-500 mb-4">
                     Guardado el {new Date(producto.fechaGuardado).toLocaleDateString('es-EC', {
                       year: 'numeric',
@@ -119,15 +279,16 @@ function FavoritosPage() {
                   <div className="flex gap-2">
                     <Link
                       to={`/producto/${producto.id}`}
-                      className="flex-1 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold text-center flex items-center justify-center gap-2"
+                      className="flex-1 py-2 text-white rounded-lg hover:opacity-90 transition-colors font-semibold text-center flex items-center justify-center gap-2"
+                      style={{ backgroundColor: '#CF5C36' }}
                     >
                       <FiEye />
-                      Ver
+                      Ver Producto
                     </Link>
                     <button
                       onClick={() => eliminarFavorito(producto.id, producto.titulo)}
-                      className="px-4 py-2 border-2 border-red-500 text-red-500 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2"
-                      title="Eliminar"
+                      className="px-4 py-2 border-2 border-red-500 text-red-500 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1"
+                      title="Eliminar de favoritos"
                     >
                       <FiTrash2 />
                     </button>
@@ -143,7 +304,8 @@ function FavoritosPage() {
             <p className="text-gray-600 mb-6">Explora productos y guarda los que te interesen</p>
             <Link
               to="/productos"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold"
+              className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-colors font-semibold"
+              style={{ backgroundColor: '#CF5C36' }}
             >
               <FiShoppingBag />
               Explorar productos
