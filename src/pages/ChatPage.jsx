@@ -272,49 +272,8 @@ function ChatPage() {
     }, 100);
   }, [messages]);
 
-  // Sistema de fallback HTTP cuando WebSocket no está funcionando correctamente
-  useEffect(() => {
-    let pollInterval = null;
-
-    const refreshMessagesFromAPI = async () => {
-      if (!selectedChat) return;
-      
-      try {
-        const backendMessages = await conversationAPI.getConversationMessages(selectedChat.id);
-        const userData = authAPI.getUserData();
-        const currentUserIdForMapping = userData?.id || currentUserId;
-        
-        const mappedMessages = backendMessages.map(msg => ({
-          id: msg.id,
-          text: msg.content,
-          sender: msg.senderId === currentUserIdForMapping ? 'me' : 'vendor',
-          timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt),
-          originalData: msg
-        }));
-
-        // Solo actualizar si hay cambios y WebSocket no está conectado
-        if (!isConnected && messages.length !== mappedMessages.length) {
-          console.log('🔄 Actualizando mensajes via HTTP (WebSocket desconectado)');
-          setMessagesFromAPI(mappedMessages);
-        }
-      } catch (error) {
-        console.error('Error al refrescar mensajes via HTTP:', error);
-      }
-    };
-
-    // Si WebSocket no está conectado, usar polling HTTP cada 3 segundos
-    if (selectedChat && !isConnected) {
-      console.log('🔄 Iniciando polling HTTP como fallback');
-      pollInterval = setInterval(refreshMessagesFromAPI, 3000);
-    }
-
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        console.log('🔄 Deteniendo polling HTTP');
-      }
-    };
-  }, [selectedChat, isConnected, messages.length, currentUserId, setMessagesFromAPI]);
+  // Sistema eliminado - Solo WebSocket para mensajes en tiempo real
+  // useEffect eliminado - No más polling HTTP para mensajes
 
   // Actualizar estado online de conversaciones cuando cambie la lista de usuarios online
   useEffect(() => {
