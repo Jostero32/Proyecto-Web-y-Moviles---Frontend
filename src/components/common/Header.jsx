@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { authAPI } from '../../services/api';
 import logo from '../../assets/Logo de Shop&Buy.png';
 import { FiSearch, FiUser, FiPackage, FiBell, FiHeart, FiMessageSquare, FiLogOut } from 'react-icons/fi';
+import NotificationIcon from './NotificationIcon';
+import useNotifications from '../../hooks/useNotifications';
 
 function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -10,6 +12,9 @@ function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
+  
+  // Hook para notificaciones
+  const { unreadCount } = useNotifications();
 
   useEffect(() => {
     // Verificar si hay sesión activa
@@ -220,6 +225,9 @@ function Header() {
                 </Link>
               </nav>
 
+              {/* Icono de notificaciones */}
+              {isLoggedIn && userData && <NotificationIcon />}
+
               {/* Botones de acción o perfil de usuario */}
               {isLoggedIn && userData ? (
                 <div className="relative user-dropdown">
@@ -294,7 +302,11 @@ function Header() {
                         >
                           <FiBell className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
                           <span className="font-medium">Notificaciones</span>
-                          <span className="ml-auto px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs font-bold">2</span>
+                          {unreadCount > 0 && (
+                            <span className="ml-auto px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs font-bold">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
                         </Link>
                         <Link
                           to="/favoritos"

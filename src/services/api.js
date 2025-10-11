@@ -375,7 +375,32 @@ export const categoryAPI = {
   }
 };
 
-// Notificaciones ahora van por WebSockets - REST eliminado
+// API para Notificaciones
+export const notificationAPI = {
+  // Obtener todas las notificaciones del usuario
+  getAllNotifications: async () => {
+    const response = await api.get('/notifications');
+    return response.data;
+  },
+
+  // Obtener notificación por ID
+  getNotificationById: async (id) => {
+    const response = await api.get(`/notifications/${id}`);
+    return response.data;
+  },
+
+  // Marcar notificación como leída
+  markAsRead: async (id) => {
+    const response = await api.put(`/notifications/${id}`, { read: true });
+    return response.data;
+  },
+
+  // Eliminar notificación
+  deleteNotification: async (id) => {
+    const response = await api.delete(`/notifications/${id}`);
+    return response.data;
+  }
+};
 
 // API para Conversaciones
 export const conversationAPI = {

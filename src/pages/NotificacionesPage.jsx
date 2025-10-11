@@ -1,15 +1,27 @@
 import { useEffect } from 'react';
 import { authAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { FiBell, FiWifi, FiZap, FiWifiOff } from 'react-icons/fi';
-import { useWebSocket, useWebSocketNotifications } from '../hooks/useWebSocket';
+import { FiBell, FiWifi, FiZap, FiWifiOff, FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
+import { useWebSocket } from '../hooks/useWebSocket';
+import useNotifications from '../hooks/useNotifications';
 
 function NotificacionesPage() {
   const navigate = useNavigate();
 
   // WebSocket hooks
   const { isConnected, reconnectStatus, connect: connectWS } = useWebSocket();
-  const { notifications } = useWebSocketNotifications();
+  
+  // Notificaciones hooks
+  const { 
+    notifications, 
+    unreadCount, 
+    loading, 
+    error, 
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification,
+    loadNotifications 
+  } = useNotifications();
 
   useEffect(() => {
     if (!authAPI.isAuthenticated()) {
@@ -29,118 +41,209 @@ function NotificacionesPage() {
     initWebSocket();
   }, [navigate, connectWS]);
 
+  // Función para formatear fecha
+  const formatTime = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Ahora';
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
+    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d`;
+    return date.toLocaleDateString();
+  };
+
+  // Manejar clic en notificación
+  const handleNotificationClick = async (notification) => {
+    if (!notification.read) {
+      await markAsRead(notification.id);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="sb-container max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-black text-gray-900">Notificaciones</h1>
-          <p className="text-gray-600 mt-1">Sistema de notificaciones en tiempo real</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-black text-gray-900">Notificaciones</h1>
+              <p className="text-gray-600 mt-1">Sistema de notificaciones en tiempo real</p>
+            </div>
+            
+            {/* Controles de notificaciones */}
+            <div className="flex items-center gap-3">
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <FiCheck className="w-4 h-4" />
+                  Marcar todas como leídas
+                </button>
+              )}
+              <button
+                onClick={loadNotifications}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Actualizar
+              </button>
+            </div>
+          </div>
+
+          {/* Badge de contador */}
+          {unreadCount > 0 && (
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+              <FiBell className="w-4 h-4" />
+              {unreadCount} notificación{unreadCount !== 1 ? 'es' : ''} no leída{unreadCount !== 1 ? 's' : ''}
+            </div>
+          )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <FiBell className="text-6xl text-gray-300" />
-              <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <FiZap className="text-white text-lg" />
-              </div>
-            </div>
-          </div>
-          
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">Sistema de Notificaciones WebSockets</h3>
-          
-          <div className="max-w-md mx-auto">
-            <div className={`flex items-center justify-center gap-3 mb-4 p-4 rounded-lg border transition-colors ${
-              isConnected 
-                ? 'bg-gradient-to-r from-green-50 to-blue-50 border-green-100' 
-                : reconnectStatus.isReconnecting
-                ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-100'
-                : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-100'
-            }`}>
-              {isConnected ? (
-                <>
-                  <FiWifi className="text-green-600 text-xl" />
-                  <span className="text-green-800 font-semibold">Conectado - Tiempo Real</span>
-                </>
-              ) : reconnectStatus.isReconnecting ? (
-                <>
-                  <FiWifiOff className="text-yellow-600 text-xl animate-pulse" />
-                  <span className="text-yellow-800 font-semibold">
+        {/* Estado de WebSocket */}
+        <div className={`mb-6 p-4 rounded-lg border transition-colors ${
+          isConnected 
+            ? 'bg-green-50 border-green-200' 
+            : reconnectStatus.isReconnecting
+            ? 'bg-yellow-50 border-yellow-200'
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            {isConnected ? (
+              <>
+                <FiWifi className="text-green-600 text-xl" />
+                <div>
+                  <div className="font-semibold text-green-800">Conectado - Tiempo Real</div>
+                  <div className="text-sm text-green-600">Las notificaciones se reciben instantáneamente</div>
+                </div>
+              </>
+            ) : reconnectStatus.isReconnecting ? (
+              <>
+                <FiWifiOff className="text-yellow-600 text-xl animate-pulse" />
+                <div>
+                  <div className="font-semibold text-yellow-800">
                     Reconectando... ({reconnectStatus.attempts}/{reconnectStatus.maxAttempts})
-                  </span>
-                </>
-              ) : (
-                <>
-                  <FiWifiOff className="text-red-600 text-xl" />
-                  <span className="text-red-800 font-semibold">Desconectado</span>
-                </>
-              )}
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              Las notificaciones ahora funcionan con <strong>WebSockets</strong> para obtener actualizaciones instantáneas sin necesidad de recargar la página.
-            </p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                <div className="font-semibold text-green-800 mb-1">✅ Mensajes</div>
-                <div className="text-green-600">Notificaciones instantáneas</div>
-              </div>
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <div className="font-semibold text-blue-800 mb-1">🔄 Tiempo Real</div>
-                <div className="text-blue-600">Sin recargas necesarias</div>
-              </div>
-              <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
-                <div className="font-semibold text-purple-800 mb-1">⚡ Rápido</div>
-                <div className="text-purple-600">Latencia mínima</div>
-              </div>
-              <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
-                <div className="font-semibold text-orange-800 mb-1">📱 Móvil</div>
-                <div className="text-orange-600">Compatible con PWA</div>
-              </div>
-            </div>
-            
-            {/* Mostrar notificaciones recibidas por WebSocket */}
-            {notifications.length > 0 && (
-              <div className="mt-6 space-y-3">
-                <h4 className="text-sm font-bold text-gray-900">Notificaciones Recientes:</h4>
-                {notifications.slice(0, 5).map((notification, index) => (
-                  <div key={notification.id || index} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FiBell className="text-blue-600" />
-                        <span className="text-sm font-semibold text-blue-800">
-                          {notification.title || 'Nueva notificación'}
-                        </span>
-                      </div>
-                      <span className="text-xs text-blue-600">
-                        {new Date(notification.timestamp || Date.now()).toLocaleTimeString('es-EC', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
-                    </div>
-                    {notification.content && (
-                      <p className="text-sm text-blue-700 mt-1">{notification.content}</p>
-                    )}
                   </div>
-                ))}
-                {notifications.length > 5 && (
-                  <p className="text-xs text-gray-500 text-center">
-                    y {notifications.length - 5} notificaciones más...
-                  </p>
-                )}
-              </div>
+                  <div className="text-sm text-yellow-600">Intentando restablecer conexión</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <FiWifiOff className="text-red-600 text-xl" />
+                <div>
+                  <div className="font-semibold text-red-800">Desconectado</div>
+                  <div className="text-sm text-red-600">Las notificaciones pueden no actualizarse automáticamente</div>
+                </div>
+              </>
             )}
-            
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-sm text-gray-500">
-                <strong>Estado:</strong> Sistema WebSocket funcional para notificaciones en tiempo real.
-                {isConnected && <span className="text-green-600 ml-1">✅ Listo para recibir notificaciones</span>}
-              </p>
-            </div>
           </div>
         </div>
+
+        {/* Lista de notificaciones */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          {loading ? (
+            <div className="p-12 text-center">
+              <FiRefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin" />
+              <div className="text-gray-500 font-medium">Cargando notificaciones...</div>
+            </div>
+          ) : error ? (
+            <div className="p-12 text-center">
+              <FiX className="w-8 h-8 text-red-400 mx-auto mb-4" />
+              <div className="text-red-600 font-medium">Error al cargar notificaciones</div>
+              <div className="text-sm text-red-500 mt-1">{error}</div>
+              <button
+                onClick={loadNotifications}
+                className="mt-4 px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="p-12 text-center">
+              <FiBell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <div className="text-gray-600 font-medium">No hay notificaciones</div>
+              <div className="text-sm text-gray-400 mt-1">
+                Cuando recibas mensajes o actualizaciones, aparecerán aquí
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    !notification.read ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                  }`}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <FiBell className={`w-5 h-5 ${notification.read ? 'text-gray-400' : 'text-blue-600'}`} />
+                        <h3 className={`font-semibold ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
+                          {notification.title}
+                        </h3>
+                        {!notification.read && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                        )}
+                      </div>
+                      
+                      <p className="text-gray-600 mb-2 line-clamp-2">
+                        {notification.message}
+                      </p>
+                      
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">
+                          {formatTime(notification.createdAt)}
+                        </span>
+                        {notification.read && (
+                          <div className="flex items-center gap-1 text-green-600">
+                            <FiCheck className="w-3 h-3" />
+                            <span className="text-xs">Leída</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Botón para eliminar */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notification.id);
+                      }}
+                      className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
+                      title="Eliminar notificación"
+                    >
+                      <FiX className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer con estadísticas */}
+        {notifications.length > 0 && (
+          <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{notifications.length}</div>
+                <div className="text-sm text-gray-500">Total de notificaciones</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600">{unreadCount}</div>
+                <div className="text-sm text-gray-500">No leídas</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">{notifications.length - unreadCount}</div>
+                <div className="text-sm text-gray-500">Leídas</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
