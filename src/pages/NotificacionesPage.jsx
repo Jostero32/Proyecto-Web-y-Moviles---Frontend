@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { authAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { FiBell, FiWifi, FiZap, FiWifiOff, FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
+import { FiBell, FiWifi, FiZap, FiWifiOff, FiCheck, FiX, FiRefreshCw, FiMessageSquare } from 'react-icons/fi';
 import { useWebSocket } from '../hooks/useWebSocket';
 import useNotifications from '../hooks/useNotifications';
 
@@ -58,6 +58,12 @@ function NotificacionesPage() {
   const handleNotificationClick = async (notification) => {
     if (!notification.read) {
       await markAsRead(notification.id);
+    }
+
+    // Si es una notificación de mensaje, navegar al chat
+    if (notification.conversationId || notification.originalMessage?.conversationId) {
+      const conversationId = notification.conversationId || notification.originalMessage?.conversationId;
+      navigate(`/chat/${conversationId}`);
     }
   };
 
@@ -179,31 +185,45 @@ function NotificacionesPage() {
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <FiBell className={`w-5 h-5 ${notification.read ? 'text-gray-400' : 'text-blue-600'}`} />
-                        <h3 className={`font-semibold ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
-                          {notification.title}
-                        </h3>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {/* Icono según tipo de notificación */}
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        notification.conversationId || notification.originalMessage?.conversationId
+                          ? 'bg-blue-100'
+                          : 'bg-gray-100'
+                      }`}>
+                        {notification.conversationId || notification.originalMessage?.conversationId ? (
+                          <FiMessageSquare className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <FiBell className="w-5 h-5 text-gray-600" />
                         )}
                       </div>
                       
-                      <p className="text-gray-600 mb-2 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">
-                          {formatTime(notification.createdAt)}
-                        </span>
-                        {notification.read && (
-                          <div className="flex items-center gap-1 text-green-600">
-                            <FiCheck className="w-3 h-3" />
-                            <span className="text-xs">Leída</span>
-                          </div>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className={`font-semibold ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
+                            {notification.title}
+                          </h3>
+                          {!notification.read && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                          )}
+                        </div>
+                        
+                        <p className="text-gray-600 mb-2 line-clamp-2">
+                          {notification.message}
+                        </p>
+                        
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-400">
+                            {formatTime(notification.createdAt)}
+                          </span>
+                          {notification.read && (
+                            <div className="flex items-center gap-1 text-green-600">
+                              <FiCheck className="w-3 h-3" />
+                              <span className="text-xs">Leída</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     

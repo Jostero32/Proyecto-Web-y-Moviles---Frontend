@@ -7,6 +7,25 @@ export const useNotifications = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Función auxiliar para obtener información del remitente
+  const getSenderInfo = useCallback(async (senderId) => {
+    try {
+      // Importar la API de usuarios solo cuando se necesite
+      const { userAPI } = await import('../services/api');
+      const userData = await userAPI.getUserById(senderId);
+      return {
+        id: userData.id,
+        name: userData.name ? `${userData.name} ${userData.lastname || ''}`.trim() : userData.email?.split('@')[0] || 'Usuario'
+      };
+    } catch (error) {
+      console.warn('No se pudo obtener info del remitente:', error);
+      return {
+        id: senderId,
+        name: 'Usuario'
+      };
+    }
+  }, []);
+
   // Cargar notificaciones desde la API (persistencia)
   const loadNotifications = useCallback(async () => {
     try {
@@ -175,19 +194,36 @@ export const useNotifications = () => {
       addNotification(mappedPayload);
     };
 
-    const handleNewMessage = (payload) => {
+    const handleNewMessage = async (payload) => {
       // Solo crear notificación si el mensaje no es del usuario actual
       if (payload.senderId && payload.senderId !== webSocketService.currentUserId) {
         console.log('💬 Creando notificación de mensaje nuevo:', payload);
         
+        // Obtener información del remitente
+        let senderName = payload.senderName || payload.sender?.name || 'Usuario';
+        
+        // Si no tenemos el nombre, intentar obtenerlo de la API
+        if (senderName === 'Usuario' && payload.senderId) {
+          try {
+            const senderInfo = await getSenderInfo(payload.senderId);
+            senderName = senderInfo.name;
+          } catch {
+            console.log('No se pudo obtener nombre del remitente, usando "Usuario"');
+          }
+        }
+        
         const notificationPayload = {
           id: `msg_${payload.id}_${Date.now()}`, // ID único para notificación
-          title: 'Nuevo mensaje',
-          message: `${payload.senderName || 'Alguien'} te ha enviado un mensaje`,
+          title: `${senderName}`,
+          message: payload.content || payload.text || payload.message || 'Nuevo mensaje',
           typeId: 1, // Tipo mensaje
           userId: webSocketService.currentUserId,
           createdAt: payload.sentAt || payload.createdAt || new Date().toISOString(),
-          originalMessage: payload
+          originalMessage: payload,
+          // Información adicional para poder navegar al chat
+          conversationId: payload.conversationId,
+          senderId: payload.senderId,
+          senderName: senderName
         };
 
         addNotification(notificationPayload);
@@ -203,7 +239,7 @@ export const useNotifications = () => {
       webSocketService.off('newNotification', handleNewNotification);
       webSocketService.off('newMessage', handleNewMessage);
     };
-  }, [addNotification]);
+  }, [addNotification, getSenderInfo]);
 
   // Cargar notificaciones al montar el hook
   useEffect(() => {
