@@ -2,6 +2,17 @@ import { useState, useEffect } from 'react';
 import { authAPI, productAPI, categoryAPI, API_BASE_URL } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiEye, FiEdit, FiTrash2, FiPlus, FiAlertCircle, FiX, FiSave, FiUpload, FiDollarSign, FiMapPin, FiTag } from 'react-icons/fi';
+import { HiDevicePhoneMobile, HiShoppingBag, HiHomeModern, HiTrophy, HiTruck } from 'react-icons/hi2';
+import { IoGameController } from 'react-icons/io5';
+  // Mapeo de íconos para categorías principales (igual que en VenderPage)
+  const MAIN_CATEGORY_ICONS = {
+    'Electrónica': HiDevicePhoneMobile,
+    'Moda': HiShoppingBag,
+    'Hogar y muebles': HiHomeModern,
+    'Deportes': HiTrophy,
+    'Vehículos': HiTruck,
+    'Gaming': IoGameController,
+  };
 import LocationPicker from '../components/common/LocationPicker';
 
 function MisProductosPage() {
@@ -695,21 +706,24 @@ function MisProductosPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
-                  {backendCategories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => handleCategoryChange(cat.id)}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      formData.category === String(cat.id)
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <FiTag className="text-2xl mx-auto mb-2 text-orange-500" />
-                    <span className="text-sm font-semibold">{cat.name}</span>
-                  </button>
-                  ))}
+                  {backendCategories.map((cat) => {
+                    const Icon = MAIN_CATEGORY_ICONS[cat.name] || FiTag;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleCategoryChange(cat.id)}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          formData.category === String(cat.id)
+                            ? 'border-orange-500 bg-orange-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Icon className="text-2xl mx-auto mb-2 text-orange-500" />
+                        <span className="text-sm font-semibold">{cat.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiChevronRight, FiTrendingUp } from 'react-icons/fi';
+import { HiDevicePhoneMobile, HiShoppingBag, HiHomeModern, HiTrophy, HiTruck } from 'react-icons/hi2';
+import { IoGameController } from 'react-icons/io5';
 import { categoryAPI } from '../services/api';
 
 function CategoriasPage() {
@@ -14,7 +16,22 @@ function CategoriasPage() {
       try {
         setLoading(true);
         const backendCategories = await categoryAPI.getMain();
-        setCategories(backendCategories);
+        // Mapeo de categorías principales con íconos
+        const MAIN_CATEGORY_CONFIG = [
+          { name: 'Electrónica', Icon: HiDevicePhoneMobile },
+          { name: 'Moda', Icon: HiShoppingBag },
+          { name: 'Hogar y muebles', Icon: HiHomeModern },
+          { name: 'Deportes', Icon: HiTrophy },
+          { name: 'Vehículos', Icon: HiTruck },
+          { name: 'Gaming', Icon: IoGameController },
+        ];
+        const mappedCategories = MAIN_CATEGORY_CONFIG
+          .map(cfg => {
+            const cat = backendCategories.find(cat => cat.name.trim().toLowerCase() === cfg.name.trim().toLowerCase());
+            return cat ? { ...cat, Icon: cfg.Icon } : null;
+          })
+          .filter(Boolean);
+        setCategories(mappedCategories);
       } catch (error) {
         setCategories([]);
       } finally {
@@ -67,7 +84,11 @@ function CategoriasPage() {
                     <div
                       className="w-20 h-20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform bg-orange-50"
                     >
-                      <FiTrendingUp className="text-4xl" style={{ color: '#CF5C36' }} />
+                      {category.Icon ? (
+                        <category.Icon className="text-4xl text-orange-500" />
+                      ) : (
+                        <FiTrendingUp className="text-4xl" style={{ color: '#CF5C36' }} />
+                      )}
                     </div>
                     <div className="flex-1">
                       <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:scale-105 transition-transform">

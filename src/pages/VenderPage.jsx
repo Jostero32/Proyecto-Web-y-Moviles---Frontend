@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUpload, FiDollarSign, FiMapPin, FiTag } from 'react-icons/fi';
+import { HiDevicePhoneMobile, HiShoppingBag, HiHomeModern, HiTrophy, HiTruck } from 'react-icons/hi2';
+import { IoGameController } from 'react-icons/io5';
 import LocationPicker from '../components/common/LocationPicker';
 
 import { productAPI, categoryAPI, authAPI } from '../services/api';
@@ -10,6 +12,15 @@ function VenderPage() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [backendCategories, setBackendCategories] = useState([]);
+  // Mapeo de íconos para categorías principales
+  const MAIN_CATEGORY_ICONS = {
+    'Electrónica': HiDevicePhoneMobile,
+    'Moda': HiShoppingBag,
+    'Hogar y muebles': HiHomeModern,
+    'Deportes': HiTrophy,
+    'Vehículos': HiTruck,
+    'Gaming': IoGameController,
+  };
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [formData, setFormData] = useState({
     title: '',
@@ -199,21 +210,24 @@ function VenderPage() {
               Categoría *
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {backendCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    formData.category === parseInt(cat.id)
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <FiTag className="text-3xl mx-auto mb-2 text-orange-500" />
-                  <span className="text-sm font-semibold">{cat.name}</span>
-                </button>
-              ))}
+              {backendCategories.map((cat) => {
+                const Icon = MAIN_CATEGORY_ICONS[cat.name] || FiTag;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => handleCategoryChange(cat.id)}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      formData.category === parseInt(cat.id)
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon className="text-3xl mx-auto mb-2 text-orange-500" />
+                    <span className="text-sm font-semibold">{cat.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
