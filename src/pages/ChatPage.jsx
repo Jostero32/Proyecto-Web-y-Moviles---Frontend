@@ -582,7 +582,7 @@ function ChatPage() {
             originalData: sentMessage
           };
           
-          addMessage(newMessage);
+          
           setMessage('');
         }
 

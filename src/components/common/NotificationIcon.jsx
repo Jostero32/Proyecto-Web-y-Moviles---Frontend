@@ -126,7 +126,7 @@ const NotificationIcon = () => {
               recentNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
+                  className={`group p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
                     !notification.read ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
                   }`}
                   onClick={() => handleNotificationClick(notification)}
@@ -177,7 +177,7 @@ const NotificationIcon = () => {
                         e.stopPropagation();
                         deleteNotification(notification.id);
                       }}
-                      className="text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0"
                       title="Eliminar notificación"
                     >
                       <FiX className="w-4 h-4" />
@@ -194,9 +194,9 @@ const NotificationIcon = () => {
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  // Aquí podrías navegar a una página de notificaciones completa
+                  navigate('/notificaciones');
                 }}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
               >
                 Ver todas las notificaciones
               </button>

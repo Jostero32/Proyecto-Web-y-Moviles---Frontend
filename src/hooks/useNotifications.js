@@ -98,6 +98,13 @@ export const useNotifications = () => {
 
       console.log('➕ Nueva notificación agregada:', mappedNotification);
       
+      // Emitir evento para sincronizar con otras instancias del hook
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('notificationUpdated', { 
+          detail: { type: 'add', notification: mappedNotification } 
+        }));
+      }, 0);
+      
       // Agregar al inicio del array (más reciente primero)
       return [mappedNotification, ...prev];
     });
@@ -115,6 +122,11 @@ export const useNotifications = () => {
           notif.id === notificationId ? { ...notif, read: true } : notif
         )
       );
+      
+      // Emitir evento para sincronizar con otras instancias del hook
+      window.dispatchEvent(new CustomEvent('notificationUpdated', { 
+        detail: { type: 'markAsRead', notificationId } 
+      }));
       
       console.log('✅ Notificación marcada como leída:', notificationId);
     } catch (err) {
@@ -144,6 +156,11 @@ export const useNotifications = () => {
         )
       );
       
+      // Emitir evento para sincronizar con otras instancias del hook
+      window.dispatchEvent(new CustomEvent('notificationUpdated', { 
+        detail: { type: 'markAllAsRead' } 
+      }));
+      
       console.log('✅ Todas las notificaciones marcadas como leídas');
     } catch (err) {
       console.error('Error marcando todas las notificaciones como leídas:', err);
@@ -162,6 +179,11 @@ export const useNotifications = () => {
         prev.filter(notif => notif.id !== notificationId)
       );
       
+      // Emitir evento para sincronizar con otras instancias del hook
+      window.dispatchEvent(new CustomEvent('notificationUpdated', { 
+        detail: { type: 'delete', notificationId } 
+      }));
+      
       console.log('🗑️ Notificación eliminada:', notificationId);
     } catch (err) {
       console.error('Error eliminando notificación:', err);
@@ -175,24 +197,17 @@ export const useNotifications = () => {
   // Obtener notificaciones recientes (últimas 10)
   const recentNotifications = notifications.slice(0, 10);
 
-  // Configurar listeners de WebSocket
+  // Configurar listeners de WebSocket - Solo para la primera instancia
   useEffect(() => {
-    const handleNewNotification = (payload) => {
-      console.log('🔔 Nueva notificación WebSocket:', payload);
-      
-      // Mapear payload del WebSocket al formato de notificación
-      const mappedPayload = {
-        id: payload.id,
-        title: payload.title || 'Nuevo mensaje',
-        message: payload.message || payload.content || '',
-        typeId: payload.typeId || 1, // Default a mensaje
-        userId: payload.userId,
-        createdAt: payload.createdAt || new Date().toISOString(),
-        ...payload
-      };
+    // Verificar si ya hay una instancia manejando WebSocket listeners
+    if (window.notificationListenerActive) {
+      console.log('� Instancia de useNotifications ya maneja WebSocket, saltando...');
+      return;
+    }
 
-      addNotification(mappedPayload);
-    };
+    // Marcar que esta instancia maneja los listeners
+    window.notificationListenerActive = true;
+    console.log('🎯 Esta instancia de useNotifications manejará WebSocket listeners');
 
     const handleNewMessage = async (payload) => {
       // Solo crear notificación si el mensaje no es del usuario actual
@@ -231,13 +246,13 @@ export const useNotifications = () => {
     };
 
     // Registrar listeners
-    webSocketService.on('newNotification', handleNewNotification);
     webSocketService.on('newMessage', handleNewMessage);
 
     return () => {
-      // Limpiar listeners
-      webSocketService.off('newNotification', handleNewNotification);
+      // Limpiar listeners y liberar el flag
       webSocketService.off('newMessage', handleNewMessage);
+      window.notificationListenerActive = false;
+      console.log('🧹 Instancia de useNotifications liberó WebSocket listeners');
     };
   }, [addNotification, getSenderInfo]);
 
@@ -245,6 +260,53 @@ export const useNotifications = () => {
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
+
+  // Sincronización entre instancias del hook
+  useEffect(() => {
+    const handleNotificationUpdate = (event) => {
+      const { type, notificationId, notification } = event.detail;
+      
+      switch (type) {
+        case 'markAsRead':
+          setNotifications(prev =>
+            prev.map(notif =>
+              notif.id === notificationId ? { ...notif, read: true } : notif
+            )
+          );
+          break;
+        
+        case 'markAllAsRead':
+          setNotifications(prev => 
+            prev.map(notif => ({ ...notif, read: true }))
+          );
+          break;
+        
+        case 'delete':
+          setNotifications(prev =>
+            prev.filter(notif => notif.id !== notificationId)
+          );
+          break;
+        
+        case 'add':
+          setNotifications(prev => {
+            // Evitar duplicados
+            const exists = prev.some(notif => notif.id === notification.id);
+            if (exists) return prev;
+            return [notification, ...prev];
+          });
+          break;
+        
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('notificationUpdated', handleNotificationUpdate);
+    
+    return () => {
+      window.removeEventListener('notificationUpdated', handleNotificationUpdate);
+    };
+  }, []);
 
   return {
     notifications,

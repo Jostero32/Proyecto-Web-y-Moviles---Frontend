@@ -5,6 +5,7 @@ import logo from '../../assets/Logo de Shop&Buy.png';
 import { FiSearch, FiUser, FiPackage, FiBell, FiHeart, FiMessageSquare, FiLogOut } from 'react-icons/fi';
 import NotificationIcon from './NotificationIcon';
 import useNotifications from '../../hooks/useNotifications';
+import { useWebSocket } from '../../hooks/useWebSocket';
 
 function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -15,6 +16,9 @@ function Header() {
   
   // Hook para notificaciones
   const { unreadCount } = useNotifications();
+  
+  // Hook para WebSocket
+  const { connect: connectWS } = useWebSocket();
 
   useEffect(() => {
     // Verificar si hay sesión activa
@@ -50,6 +54,22 @@ function Header() {
       window.removeEventListener('userDataUpdated', handleUserDataUpdate);
     };
   }, []);
+
+  // Conectar WebSocket cuando el usuario esté logueado (para notificaciones en tiempo real)
+  useEffect(() => {
+    if (isLoggedIn && userData) {
+      const initWebSocket = async () => {
+        try {
+          await connectWS();
+          console.log('🔔 WebSocket conectado en Header para notificaciones');
+        } catch {
+          console.log('⚠️ No se pudo conectar WebSocket en Header, las notificaciones pueden no ser en tiempo real');
+        }
+      };
+
+      initWebSocket();
+    }
+  }, [isLoggedIn, userData, connectWS]);
 
   useEffect(() => {
     // Cerrar dropdown al hacer clic fuera
