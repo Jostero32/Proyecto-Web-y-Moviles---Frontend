@@ -61,7 +61,7 @@ function Header() {
       const initWebSocket = async () => {
         try {
           await connectWS();
-          console.log('🔔 WebSocket conectado en Header para notificaciones');
+         
         } catch {
           console.log('⚠️ No se pudo conectar WebSocket en Header, las notificaciones pueden no ser en tiempo real');
         }
@@ -315,19 +315,7 @@ function Header() {
                           <FiPackage className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
                           <span className="font-medium">Mis Productos</span>
                         </Link>
-                        <Link
-                          to="/notificaciones"
-                          className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 transition-colors group"
-                          onClick={() => setShowDropdown(false)}
-                        >
-                          <FiBell className="w-5 h-5 text-gray-400 group-hover:text-orange-600" />
-                          <span className="font-medium">Notificaciones</span>
-                          {unreadCount > 0 && (
-                            <span className="ml-auto px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs font-bold">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                          )}
-                        </Link>
+                       
                         <Link
                           to="/favoritos"
                           className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 transition-colors group"

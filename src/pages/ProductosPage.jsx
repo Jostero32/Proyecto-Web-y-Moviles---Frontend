@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
 import {
   FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight
 } from 'react-icons/fi';
@@ -169,6 +170,7 @@ function ProductCard({ product }) {
 }
 
 function ProductosPage() {
+  usePageTitle('Productos');
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('todos');

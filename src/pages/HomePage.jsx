@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import logo from '../assets/Logo de Shop&Buy.png';
+import usePageTitle from '../hooks/usePageTitle';
 import {
   FiSearch, FiTrendingUp, FiZap, FiMapPin, FiHeart,
   FiChevronRight, FiStar, FiUsers, FiPackage, FiClock, FiDollarSign
@@ -241,6 +242,7 @@ function StatCard({ icon: Icon, value, label, color }) {
 }
 
 function HomePage() {
+  
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);

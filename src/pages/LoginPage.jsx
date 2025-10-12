@@ -2,8 +2,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { authAPI } from '../services/api';
 import logo from '../assets/Logo de Shop&Buy.png';
+import usePageTitle from '../hooks/usePageTitle';
 
 function LoginPage() {
+  usePageTitle('Iniciar Sesión');
   const [formData, setFormData] = useState({
     email: '',
     password: ''

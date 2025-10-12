@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch } from 'react-icons/fi';
+import usePageTitle from '../hooks/usePageTitle';
 import { MdVerified } from 'react-icons/md';
 import { authAPI, conversationAPI, messageAPI, userAPI, productAPI, API_BASE_URL } from '../services/api';
 import { useWebSocket, useWebSocketMessages, useOnlineUsers } from '../hooks/useWebSocket';
@@ -65,6 +66,7 @@ const formatMessageTimestamp = (dateString) => {
 };
 
 function ChatPage() {
+  usePageTitle('Chats');
   const { vendorId } = useParams();
   const navigate = useNavigate();
   const [message, setMessage] = useState('');

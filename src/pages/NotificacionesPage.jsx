@@ -3,8 +3,10 @@ import { authAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { FiBell, FiZap, FiCheck, FiX, FiRefreshCw, FiMessageSquare } from 'react-icons/fi';
 import useNotifications from '../hooks/useNotifications';
+import usePageTitle from '../hooks/usePageTitle';
 
 function NotificacionesPage() {
+  usePageTitle('Notificaciones');
   const navigate = useNavigate();
   
   // Notificaciones hooks
