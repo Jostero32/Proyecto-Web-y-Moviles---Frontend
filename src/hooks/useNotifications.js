@@ -7,24 +7,7 @@ export const useNotifications = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Función auxiliar para obtener información del remitente
-  const getSenderInfo = useCallback(async (senderId) => {
-    try {
-      // Importar la API de usuarios solo cuando se necesite
-      const { userAPI } = await import('../services/api');
-      const userData = await userAPI.getUserById(senderId);
-      return {
-        id: userData.id,
-        name: userData.name ? `${userData.name} ${userData.lastname || ''}`.trim() : userData.email?.split('@')[0] || 'Usuario'
-      };
-    } catch (error) {
-      console.warn('No se pudo obtener info del remitente:', error);
-      return {
-        id: senderId,
-        name: 'Usuario'
-      };
-    }
-  }, []);
+  // Función getSenderInfo eliminada - ya no necesaria
 
   // Cargar notificaciones desde la API (persistencia)
   const loadNotifications = useCallback(async () => {
@@ -214,31 +197,17 @@ export const useNotifications = () => {
       if (payload.senderId && payload.senderId !== webSocketService.currentUserId) {
         console.log('💬 Creando notificación de mensaje nuevo:', payload);
         
-        // Obtener información del remitente
-        let senderName = payload.senderName || payload.sender?.name || 'Usuario';
-        
-        // Si no tenemos el nombre, intentar obtenerlo de la API
-        if (senderName === 'Usuario' && payload.senderId) {
-          try {
-            const senderInfo = await getSenderInfo(payload.senderId);
-            senderName = senderInfo.name;
-          } catch {
-            console.log('No se pudo obtener nombre del remitente, usando "Usuario"');
-          }
-        }
-        
         const notificationPayload = {
           id: `msg_${payload.id}_${Date.now()}`, // ID único para notificación
-          title: `${senderName}`,
-          message: payload.content || payload.text || payload.message || 'Nuevo mensaje',
+          title: 'Nuevo mensaje',
+          message: 'Tienes un mensaje nuevo',
           typeId: 1, // Tipo mensaje
           userId: webSocketService.currentUserId,
           createdAt: payload.sentAt || payload.createdAt || new Date().toISOString(),
           originalMessage: payload,
           // Información adicional para poder navegar al chat
           conversationId: payload.conversationId,
-          senderId: payload.senderId,
-          senderName: senderName
+          senderId: payload.senderId
         };
 
         addNotification(notificationPayload);
@@ -254,7 +223,7 @@ export const useNotifications = () => {
       window.notificationListenerActive = false;
       console.log('🧹 Instancia de useNotifications liberó WebSocket listeners');
     };
-  }, [addNotification, getSenderInfo]);
+  }, [addNotification]);
 
   // Cargar notificaciones al montar el hook
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch, FiWifi, FiWifiOff } from 'react-icons/fi';
+import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch } from 'react-icons/fi';
 import { MdVerified } from 'react-icons/md';
 import { authAPI, conversationAPI, messageAPI, userAPI, productAPI, API_BASE_URL } from '../services/api';
 import { useWebSocket, useWebSocketMessages, useOnlineUsers } from '../hooks/useWebSocket';
@@ -81,8 +81,6 @@ function ChatPage() {
   // WebSocket hooks
   const { 
     isConnected, 
-    reconnectStatus, 
-    error: wsError, 
     connect: connectWS, 
     disconnect: disconnectWS,
     startTyping,
@@ -572,17 +570,7 @@ function ChatPage() {
           const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
           console.log('Mensaje enviado por HTTP:', sentMessage);
           
-          // Crear mensaje local para UI inmediata
-          const newMessage = {
-            id: sentMessage.id,
-            text: message.trim(),
-            sender: 'me',
-            timestamp: formatMessageTimestamp(sentMessage.sentAt || sentMessage.createdAt),
-            status: 'sent', // Enviado por HTTP
-            originalData: sentMessage
-          };
-          
-          
+          // Solo limpiar el input, el WebSocket se encargará de mostrar el mensaje
           setMessage('');
         }
 
@@ -799,57 +787,7 @@ function ChatPage() {
               <>
                 {/* Header del chat */}
                 <div className="p-4 border-b border-gray-200">
-                  {/* Indicador de conexión WebSocket */}
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {isConnected ? (
-                        <div className="flex items-center gap-1 text-green-600 text-xs">
-                          <FiWifi className="text-sm" />
-                          <span>Tiempo Real</span>
-                        </div>
-                      ) : reconnectStatus.isReconnecting ? (
-                        <div className="flex items-center gap-1 text-yellow-600 text-xs">
-                          <FiWifiOff className="text-sm animate-pulse" />
-                          <span>Reconectando... ({reconnectStatus.attempts}/{reconnectStatus.maxAttempts})</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-green-600 text-xs">
-                          <FiWifiOff className="text-sm" />
-                          <span>Modo HTTP (funciona correctamente)</span>
-                        </div>
-                      )}
-                    </div>
-                    {wsError && reconnectStatus.attempts >= 3 && (
-                      <div className="text-xs text-blue-500 truncate max-w-xs" title="Para habilitar tiempo real, implementa servidor WebSocket en el backend">
-                        💡 Servidor WebSocket no configurado
-                      </div>
-                    )}
-                    
-                    {/* Botón de prueba WebSocket (temporal para debugging) */}
-                    {isConnected && selectedChat && (
-                      <button
-                        onClick={() => {
-                          const testMessage = {
-                            id: Date.now(),
-                            conversationId: selectedChat.id,
-                            senderId: selectedChat.originalData.buyerId === currentUserId 
-                              ? selectedChat.originalData.sellerId 
-                              : selectedChat.originalData.buyerId,
-                            content: `🧪 Mensaje de prueba ${new Date().toLocaleTimeString()}`,
-                            sentAt: new Date().toISOString(),
-                            createdAt: new Date().toISOString()
-                          };
-                          console.log('🧪 Simulando mensaje WebSocket:', testMessage);
-                          import('../services/websocket').then(({ websocketService }) => {
-                            websocketService.simulateMessage(testMessage);
-                          });
-                        }}
-                        className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-                      >
-                        Test WS
-                      </button>
-                    )}
-                  </div>
+                  {/* Indicadores eliminados para simplicidad */}
                   
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">

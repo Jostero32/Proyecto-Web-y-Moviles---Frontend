@@ -1,6 +1,6 @@
 import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
-import webSocketService from '../services/websocket';
-import { mapWebSocketEventToNotification } from '../utils/notificationMapper';
+// import webSocketService from '../services/websocket'; // DESHABILITADO - ahora se usa useNotifications.js
+// import { mapWebSocketEventToNotification } from '../utils/notificationMapper'; // DESHABILITADO
 
 // Crear el contexto
 const NotificationContext = createContext();
@@ -138,29 +138,30 @@ export const NotificationProvider = ({ children }) => {
       .slice(0, 10); // Limitar a las 10 más recientes
   }, [notifications]);
 
-  // Configurar WebSocket listeners cuando el contexto se inicializa
+  // Configurar WebSocket listeners cuando el contexto se inicializa - DESHABILITADO
   useEffect(() => {
-    const handleNewNotification = (payload) => {
-      console.log('🔔 Nueva notificación WebSocket (Context):', payload);
-      
-      // Usar las utilidades para mapear la notificación
-      const mappedNotification = mapWebSocketEventToNotification(payload);
-      
-      addNotification(mappedNotification);
-    };
+    // FUNCIONES COMENTADAS - ahora se usa useNotifications.js
+    // const handleNewNotification = (payload) => {
+    //   console.log('🔔 Nueva notificación WebSocket (Context):', payload);
+    //   
+    //   // Usar las utilidades para mapear la notificación
+    //   const mappedNotification = mapWebSocketEventToNotification(payload);
+    //   
+    //   addNotification(mappedNotification);
+    // };
 
-    // Manejar mensajes directos para convertirlos en notificaciones
-    const handleDirectMessage = (payload) => {
-      // Solo crear notificación si el mensaje no es del usuario actual
-      if (payload.senderId !== webSocketService.currentUserId) {
-        console.log('💬 Creando notificación de mensaje nuevo (Context):', payload);
-        handleNewNotification({
-          type: 'new_message',
-          eventType: 'new_message',
-          ...payload
-        });
-      }
-    };
+    // // Manejar mensajes directos para convertirlos en notificaciones
+    // const handleDirectMessage = (payload) => {
+    //   // Solo crear notificación si el mensaje no es del usuario actual
+    //   if (payload.senderId !== webSocketService.currentUserId) {
+    //     console.log('💬 Creando notificación de mensaje nuevo (Context):', payload);
+    //     handleNewNotification({
+    //       type: 'new_message',
+    //       eventType: 'new_message',
+    //       ...payload
+    //     });
+    //   }
+    // };
 
     // Cargar notificaciones iniciales solo si hay usuario autenticado
     const checkAuthAndLoad = () => {
@@ -168,20 +169,20 @@ export const NotificationProvider = ({ children }) => {
       if (token) {
         loadNotifications();
         
-        // Configurar listeners de WebSocket
-        webSocketService.on('newNotification', handleNewNotification);
-        webSocketService.on('newMessage', handleNewNotification);
-        webSocketService.on('message', handleDirectMessage);
+        // Configurar listeners de WebSocket - DESHABILITADO (ahora se usa useNotifications.js)
+        // webSocketService.on('newNotification', handleNewNotification);
+        // webSocketService.on('newMessage', handleNewNotification);
+        // webSocketService.on('message', handleDirectMessage);
       }
     };
 
     checkAuthAndLoad();
 
     return () => {
-      // Limpiar listeners
-      webSocketService.off('newNotification', handleNewNotification);
-      webSocketService.off('newMessage', handleNewNotification);
-      webSocketService.off('message', handleDirectMessage);
+      // Limpiar listeners - DESHABILITADO (ahora se usa useNotifications.js)
+      // webSocketService.off('newNotification', handleNewNotification);
+      // webSocketService.off('newMessage', handleNewNotification);
+      // webSocketService.off('message', handleDirectMessage);
     };
   }, [addNotification, loadNotifications]);
 

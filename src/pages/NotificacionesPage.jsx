@@ -1,15 +1,11 @@
 import { useEffect } from 'react';
 import { authAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { FiBell, FiWifi, FiZap, FiWifiOff, FiCheck, FiX, FiRefreshCw, FiMessageSquare } from 'react-icons/fi';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { FiBell, FiZap, FiCheck, FiX, FiRefreshCw, FiMessageSquare } from 'react-icons/fi';
 import useNotifications from '../hooks/useNotifications';
 
 function NotificacionesPage() {
   const navigate = useNavigate();
-
-  // WebSocket hooks
-  const { isConnected, reconnectStatus, connect: connectWS } = useWebSocket();
   
   // Notificaciones hooks
   const { 
@@ -28,18 +24,7 @@ function NotificacionesPage() {
       navigate('/login');
       return;
     }
-
-    // Conectar a WebSocket para recibir notificaciones
-    const initWebSocket = async () => {
-      try {
-        await connectWS();
-      } catch (error) {
-        console.error('Error conectando WebSocket para notificaciones:', error);
-      }
-    };
-
-    initWebSocket();
-  }, [navigate, connectWS]);
+  }, [navigate]);
 
   // Función para formatear fecha
   const formatTime = (dateString) => {
@@ -74,7 +59,7 @@ function NotificacionesPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-black text-gray-900">Notificaciones</h1>
-              <p className="text-gray-600 mt-1">Sistema de notificaciones en tiempo real</p>
+              <p className="text-gray-600 mt-1">Gestiona tus notificaciones</p>
             </div>
             
             {/* Controles de notificaciones */}
@@ -108,44 +93,7 @@ function NotificacionesPage() {
           )}
         </div>
 
-        {/* Estado de WebSocket */}
-        <div className={`mb-6 p-4 rounded-lg border transition-colors ${
-          isConnected 
-            ? 'bg-green-50 border-green-200' 
-            : reconnectStatus.isReconnecting
-            ? 'bg-yellow-50 border-yellow-200'
-            : 'bg-red-50 border-red-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            {isConnected ? (
-              <>
-                <FiWifi className="text-green-600 text-xl" />
-                <div>
-                  <div className="font-semibold text-green-800">Conectado - Tiempo Real</div>
-                  <div className="text-sm text-green-600">Las notificaciones se reciben instantáneamente</div>
-                </div>
-              </>
-            ) : reconnectStatus.isReconnecting ? (
-              <>
-                <FiWifiOff className="text-yellow-600 text-xl animate-pulse" />
-                <div>
-                  <div className="font-semibold text-yellow-800">
-                    Reconectando... ({reconnectStatus.attempts}/{reconnectStatus.maxAttempts})
-                  </div>
-                  <div className="text-sm text-yellow-600">Intentando restablecer conexión</div>
-                </div>
-              </>
-            ) : (
-              <>
-                <FiWifiOff className="text-red-600 text-xl" />
-                <div>
-                  <div className="font-semibold text-red-800">Desconectado</div>
-                  <div className="text-sm text-red-600">Las notificaciones pueden no actualizarse automáticamente</div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        {/* Indicador eliminado para simplicidad */}
 
         {/* Lista de notificaciones */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -175,7 +123,7 @@ function NotificacionesPage() {
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="max-h-[600px] overflow-y-auto divide-y divide-gray-100">
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
