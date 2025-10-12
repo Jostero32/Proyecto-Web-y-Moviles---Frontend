@@ -26,33 +26,22 @@ import { productAPI, categoryAPI, favoriteAPI, authAPI, API_BASE_URL } from '../
 import AuthLink from '../components/common/AuthLink';
 import Modal from '../components/common/Modal';
 
-// Categorías estáticas con iconos (fuera del componente para evitar re-renders)
-const categoryIcons = [
-  { icon: HiDevicePhoneMobile, title: 'Tecnología', color: '#CF5C36' },
-  { icon: HiHomeModern, title: 'Casa y Hogar', color: '#EFC88B' },
-  { icon: HiShoppingBag, title: 'Ropa y Moda', color: '#7C7C7C' },
-  { icon: HiTrophy, title: 'Deportes', color: '#CF5C36' },
-  { icon: IoCarSport, title: 'Carros y Motos', color: '#EFC88B' },
-  { icon: IoGameController, title: 'Gaming', color: '#7C7C7C' },
-];
 
-function CategoryCard({ icon: Icon, title, count, color }) {
+
+
+function CategoryCard({ id, name, Icon }) {
   return (
     <Link
-      to="/productos"
+      to={`/productos?categoryId=${id}`}
       className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100 text-center overflow-hidden"
     >
-      {/* Efecto de fondo al hover */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-           style={{ background: `linear-gradient(135deg, ${color}10, ${color}05)` }}></div>
-
-      <div className="relative z-10">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-500"
-             style={{ backgroundColor: `${color}15` }}>
-          <Icon className="text-4xl" style={{ color }} />
-        </div>
-        <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:scale-105 transition-transform">{title}</h3>
-        <p className="text-sm font-medium" style={{ color }}>{count} productos</p>
+      <div className="flex flex-col items-center justify-center">
+        {Icon && (
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-orange-50 group-hover:scale-110 transition-transform">
+            <Icon className="text-3xl text-orange-500" />
+          </div>
+        )}
+        <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:scale-105 transition-transform">{name}</h3>
       </div>
     </Link>
   );
@@ -260,6 +249,7 @@ function HomePage() {
         // Tomar solo los primeros 8 productos para destacados
         setProducts(productsData.slice(0, 8));
 
+
         // Calcular conteo real de productos por categoría
         const categoryCounts = {};
         productsData.forEach(prod => {
@@ -268,19 +258,27 @@ function HomePage() {
           }
         });
 
-        // Mapear categorías del backend con iconos estáticos y conteo real
-        const mappedCategories = categoriesData.slice(0, 6).map((cat, index) => ({
-          ...categoryIcons[index % categoryIcons.length],
-          title: cat.name,
-          count: categoryCounts[cat.id] || 0,
-          id: cat.id
-        }));
+        // Filtrar y ordenar solo las 6 categorías principales (nombres exactos con tildes)
+        const MAIN_CATEGORY_CONFIG = [
+          { name: 'Electrónica', Icon: HiDevicePhoneMobile },
+          { name: 'Moda', Icon: HiShoppingBag },
+          { name: 'Hogar y muebles', Icon: HiHomeModern },
+          { name: 'Deportes', Icon: HiTrophy },
+          { name: 'Vehículos', Icon: HiTruck },
+          { name: 'Gaming', Icon: IoGameController },
+        ];
+        const mappedCategories = MAIN_CATEGORY_CONFIG
+          .map(cfg => {
+            const cat = categoriesData.find(cat => cat.name.trim().toLowerCase() === cfg.name.trim().toLowerCase());
+            return cat ? { id: cat.id, name: cat.name, Icon: cfg.Icon } : null;
+          })
+          .filter(Boolean);
         setCategories(mappedCategories);
 
       } catch (error) {
-        console.error('Error al cargar datos:', error);
-        // Mantener categorías estáticas en caso de error
-        setCategories(categoryIcons.map(cat => ({ ...cat, count: '0' })));
+  console.error('Error al cargar datos:', error);
+  // Si hay error, dejar categorías vacías
+  setCategories([]);
       } finally {
         setLoading(false);
       }
