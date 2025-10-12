@@ -1,4 +1,4 @@
-import { authAPI } from './api.js';
+import { authAPI, API_BASE_URL } from './api.js';
 import { websocketConfig } from '../config/websocket.js';
 
 class WebSocketService {
@@ -326,7 +326,7 @@ class WebSocketService {
     
     this.isConnected = false;
     this.messageQueue = [];
-    console.log('WebSocket connection to \'ws://localhost:8080/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIiLCJlbWFpbCI6InJ1a2FAZ21haWwuY29tIiwicm9sZXMiOlsiVXN1YXJpbyJdLCJpYXQiOjE3NjAxMTg0MTYsImV4cCI6MTc2MDEyMjAxNn0.4T8FLXYkRp4zh8NfdcD9XGsbRc_vMvxliF2J1ZjN2zo&userId=2\' failed: WebSocket is closed before the connection is established.');
+    console.log('❌ WebSocket desconectado - conexión cerrada');
   }
 
   scheduleReconnect() {

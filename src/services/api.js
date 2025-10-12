@@ -1,8 +1,8 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-// URL base del backend
-const API_BASE_URL = 'http://localhost:8080';
+// URL base del backend - Lee desde variable de entorno o usa localhost como fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 export { API_BASE_URL };
 
 // Crear instancia de axios con configuración base

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authAPI, userAPI } from '../services/api';
+import { authAPI, userAPI, API_BASE_URL } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { FiUser, FiMail, FiPhone, FiMapPin, FiCamera } from 'react-icons/fi';
 
@@ -52,14 +52,14 @@ function MiPerfilPage() {
     const cacheBuster = user.updatedAt ? `?v=${new Date(user.updatedAt).getTime()}` : `?v=${Date.now()}`;
     
     if (user.avatarUrl?.startsWith('data:')) return user.avatarUrl;
-    if (user.avatarUrl?.startsWith('http://localhost:8080')) {
+    if (user.avatarUrl?.startsWith(API_BASE_URL)) {
       return user.avatarUrl.includes('?') ? user.avatarUrl : `${user.avatarUrl}${cacheBuster}`;
     }
     if (user.avatarUrl?.startsWith('/')) {
-      return `http://localhost:8080${user.avatarUrl}${cacheBuster}`;
+      return `${API_BASE_URL}${user.avatarUrl}${cacheBuster}`;
     }
-    if (user.dni) return `http://localhost:8080/uploads/users/${user.dni}/${user.dni}.jpg${cacheBuster}`;
-    return `http://localhost:8080/uploads/common/user-common.png${cacheBuster}`;
+    if (user.dni) return `${API_BASE_URL}/uploads/users/${user.dni}/${user.dni}.jpg${cacheBuster}`;
+    return `${API_BASE_URL}/uploads/common/user-common.png${cacheBuster}`;
   };
 
   const handleInputChange = (e) => {

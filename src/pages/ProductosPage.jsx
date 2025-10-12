@@ -5,7 +5,7 @@ import {
   FiSearch, FiFilter, FiMapPin, FiHeart, FiChevronRight
 } from 'react-icons/fi';
 import { MdVerified } from 'react-icons/md';
-import { productAPI, categoryAPI, favoriteAPI, authAPI } from '../services/api';
+import { productAPI, categoryAPI, favoriteAPI, authAPI, API_BASE_URL } from '../services/api';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import Modal from '../components/common/Modal';
@@ -108,7 +108,7 @@ function ProductCard({ product }) {
         <div className="relative">
           {imageUrl ? (
             <img
-              src={`http://localhost:8080${imageUrl}`}
+              src={`${API_BASE_URL}${imageUrl}`}
               alt={product.title}
               className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
             />

@@ -2,7 +2,7 @@
 export const websocketConfig = {
   // URL del servidor WebSocket
   // Cambia esto según tu configuración del backend
-  url: 'ws://localhost:8080',
+  url: import.meta.env.VITE_API_URL?.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:8080',
   
   // Configuraciones de conexión
   heartbeatInterval: 30000,     // 30 segundos
@@ -26,8 +26,8 @@ const isDevelopment = import.meta.env.MODE === 'development';
 
 // URLs por ambiente
 export const WEBSOCKET_URLS = {
-  development: 'ws://localhost:8080',
-  production: 'wss://tu-dominio.com',  // Cambiar por tu dominio en producción
+  development: import.meta.env.VITE_API_URL?.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:8080',
+  production: import.meta.env.VITE_API_URL?.replace('http://', 'wss://').replace('https://', 'wss://') || 'wss://tu-dominio.com',  // Cambiar por tu dominio en producción
 };
 
 // URL automática basada en el ambiente

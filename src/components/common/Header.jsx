@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { authAPI } from '../../services/api';
+import { authAPI, API_BASE_URL } from '../../services/api';
 import logo from '../../assets/Logo de Shop&Buy.png';
 import { FiSearch, FiUser, FiPackage, FiBell, FiHeart, FiMessageSquare, FiLogOut } from 'react-icons/fi';
 import NotificationIcon from './NotificationIcon';
@@ -104,22 +104,22 @@ function Header() {
     }
     
     // Si ya es una URL completa del servidor, usarla
-    if (user.avatarUrl?.startsWith('http://localhost:8080')) {
+    if (user.avatarUrl?.startsWith(API_BASE_URL)) {
       return user.avatarUrl.includes('?') ? user.avatarUrl : `${user.avatarUrl}${cacheBuster}`;
     }
     
     // Si es una ruta del servidor que empieza con /, construir URL completa
     if (user.avatarUrl?.startsWith('/')) {
-      return `http://localhost:8080${user.avatarUrl}${cacheBuster}`;
+      return `${API_BASE_URL}${user.avatarUrl}${cacheBuster}`;
     }
     
     // Si tenemos DNI, construir ruta por defecto
     if (user.dni) {
-      return `http://localhost:8080/uploads/users/${user.dni}/${user.dni}.jpg${cacheBuster}`;
+      return `${API_BASE_URL}/uploads/users/${user.dni}/${user.dni}.jpg${cacheBuster}`;
     }
     
     // Fallback: imagen por defecto del servidor
-    return `http://localhost:8080/uploads/common/user-common.png${cacheBuster}`;
+    return `${API_BASE_URL}/uploads/common/user-common.png${cacheBuster}`;
   };
 
   // Función para obtener rol del usuario

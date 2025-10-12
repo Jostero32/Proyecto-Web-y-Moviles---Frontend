@@ -1,4 +1,5 @@
 import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { API_BASE_URL } from '../services/api';
 // import webSocketService from '../services/websocket'; // DESHABILITADO - ahora se usa useNotifications.js
 // import { mapWebSocketEventToNotification } from '../utils/notificationMapper'; // DESHABILITADO
 
@@ -15,7 +16,7 @@ export const NotificationProvider = ({ children }) => {
   const loadNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:8080/api/notifications', {
+      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
@@ -70,7 +71,7 @@ export const NotificationProvider = ({ children }) => {
   const markAsRead = useCallback(async (notificationId) => {
     try {
       // Actualizar en el servidor
-      const response = await fetch(`http://localhost:8080/api/notifications/${notificationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -109,7 +110,7 @@ export const NotificationProvider = ({ children }) => {
     try {
       await Promise.all(
         unreadNotifications.map(notification =>
-          fetch(`http://localhost:8080/api/notifications/${notification.id}`, {
+          fetch(`${API_BASE_URL}/api/notifications/${notification.id}`, {
             method: 'PUT',
             credentials: 'include',
             headers: {
