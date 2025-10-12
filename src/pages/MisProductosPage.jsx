@@ -35,22 +35,21 @@ function MisProductosPage() {
         // Obtener productos del usuario
         const response = await productAPI.getMyProducts();
         
-        // Mapear productos del backend al formato del frontend
+        // Mapear productos del backend al formato del frontend, mostrando categoría y subcategoría si existen
         const mappedProducts = response.map(product => ({
           id: product.id,
           nombre: product.title,
-          descripcion: product.description || 'Sin descripción', // Mapear descripción del backend
+          descripcion: product.description || 'Sin descripción',
           precio: product.price,
           estado: product.status === 'active' ? 'Activo' : 
                  product.status === 'sold' ? 'Vendido' : 
                  product.status === 'reserved' ? 'Reservado' : 'Inactivo',
-          visitas: 0, // El backend no tiene este campo aún
+          visitas: 0,
           imagen: product.ProductPhotos && product.ProductPhotos.length > 0 
             ? (product.ProductPhotos[0].url.startsWith('http') 
                ? product.ProductPhotos[0].url 
                : `${API_BASE_URL}${product.ProductPhotos[0].url}`)
-            : "📦", // Emoji por defecto si no hay imagen
-          categoria: product.Category ? product.Category.name : 'Sin categoría',
+            : "📦",
           fecha: product.createdAt || new Date().toISOString()
         }));
 
@@ -86,24 +85,33 @@ function MisProductosPage() {
       // Obtener productos del usuario actualizados
       const response = await productAPI.getMyProducts();
       
-      // Mapear productos del backend al formato del frontend
-      const mappedProducts = response.map(product => ({
-        id: product.id,
-        nombre: product.title,
-        descripcion: product.description || 'Sin descripción',
-        precio: product.price,
-        estado: product.status === 'active' ? 'Activo' : 
-               product.status === 'sold' ? 'Vendido' : 
-               product.status === 'reserved' ? 'Reservado' : 'Inactivo',
-        visitas: 0,
-        imagen: product.ProductPhotos && product.ProductPhotos.length > 0 
-          ? (product.ProductPhotos[0].url.startsWith('http') 
-             ? product.ProductPhotos[0].url 
-             : `${API_BASE_URL}${product.ProductPhotos[0].url}`)
-          : "📦",
-        categoria: product.Category ? product.Category.name : 'Sin categoría',
-        fecha: product.createdAt || new Date().toISOString()
-      }));
+      // Mapear productos del backend al formato del frontend, mostrando categoría y subcategoría si existen
+      const mappedProducts = response.map(product => {
+        let categoria = 'Sin categoría';
+        if (product.Category) {
+          categoria = product.Category.name;
+          if (product.Subcategory && product.Subcategory.name) {
+            categoria += ' / ' + product.Subcategory.name;
+          }
+        }
+        return {
+          id: product.id,
+          nombre: product.title,
+          descripcion: product.description || 'Sin descripción',
+          precio: product.price,
+          estado: product.status === 'active' ? 'Activo' : 
+                 product.status === 'sold' ? 'Vendido' : 
+                 product.status === 'reserved' ? 'Reservado' : 'Inactivo',
+          visitas: 0,
+          imagen: product.ProductPhotos && product.ProductPhotos.length > 0 
+            ? (product.ProductPhotos[0].url.startsWith('http') 
+               ? product.ProductPhotos[0].url 
+               : `${API_BASE_URL}${product.ProductPhotos[0].url}`)
+            : "📦",
+          categoria,
+          fecha: product.createdAt || new Date().toISOString()
+        };
+      });
 
       setProductos(mappedProducts);
     } catch (error) {
@@ -325,7 +333,7 @@ function MisProductosPage() {
                     <div className="flex items-center gap-6 mb-4 flex-wrap">
                       <span className="text-orange-600 font-bold text-2xl">${producto.precio}</span>
                       <span className="flex items-center gap-2 text-gray-600">
-                        <FiEye /> {producto.visitas} visitas
+                       
                       </span>
                     </div>
 
