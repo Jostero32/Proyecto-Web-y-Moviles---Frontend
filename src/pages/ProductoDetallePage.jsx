@@ -101,6 +101,7 @@ function ProductoDetallePage() {
         // Mapear datos del backend al formato esperado por el componente
         const mappedProduct = {
           id: productData.id,
+          sellerId: productData.sellerId, // Asegura que sellerId esté presente
           title: productData.title,
           price: productData.price,
           description: productData.description || 'Sin descripción disponible',
@@ -433,20 +434,21 @@ function ProductoDetallePage() {
                 <div className="space-y-3 mb-6">
                   {(() => {
                     const currentUser = authAPI.getUserData();
-                    const isOwnProduct = currentUser?.id === product?.sellerId;
+                    const isAuthenticated = authAPI.isAuthenticated();
+                    const isOwnProduct = isAuthenticated && currentUser?.id === product?.sellerId;
 
-                    // Si el producto es del usuario actual
+                    // Si el usuario está autenticado y es el propietario
                     if (isOwnProduct) {
                       return (
                         <div className="w-full py-4 bg-gray-100 text-gray-500 font-bold rounded-xl flex items-center justify-center gap-2 border-2 border-dashed border-gray-300">
                           <FiMessageCircle className="text-xl" />
-                          Este es tu producto
+                          Eres el propietario del producto
                         </div>
                       );
                     }
 
                     // Si el usuario no está autenticado
-                    if (!authAPI.isAuthenticated()) {
+                    if (!isAuthenticated) {
                       return (
                         <button
                           onClick={() => navigate('/login')}
