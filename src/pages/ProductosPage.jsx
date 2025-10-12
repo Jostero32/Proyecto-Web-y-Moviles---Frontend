@@ -197,6 +197,11 @@ function ProductosPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [backendCategories, setBackendCategories] = useState([]);
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 6;
+  // Ordenamiento
+  const [sortOrder, setSortOrder] = useState('Más recientes');
 
   // Cargar filtros desde los parámetros de URL
   useEffect(() => {
@@ -440,15 +445,27 @@ function ProductosPage() {
     return matchesSearch && matchesCategory && matchesSubcategory && matchesLocation && matchesPrice;
   });
 
-  // Ordenar productos por distancia si hay ubicación del usuario
-  const sortedProducts = userLocation && location === 'Cercanos'
-    ? [...filteredProducts].sort((a, b) => {
-        if (!a.coords || !b.coords) return 0;
-        const distA = calculateDistance(userLocation.lat, userLocation.lng, a.coords.lat, a.coords.lng);
-        const distB = calculateDistance(userLocation.lat, userLocation.lng, b.coords.lat, b.coords.lng);
-        return distA - distB;
-      })
-    : filteredProducts;
+  // Ordenar productos
+  let sortedProducts = filteredProducts;
+  if (userLocation && location === 'Cercanos') {
+    sortedProducts = [...filteredProducts].sort((a, b) => {
+      if (!a.coords || !b.coords) return 0;
+      const distA = calculateDistance(userLocation.lat, userLocation.lng, a.coords.lat, a.coords.lng);
+      const distB = calculateDistance(userLocation.lat, userLocation.lng, b.coords.lat, b.coords.lng);
+      return distA - distB;
+    });
+  } else if (sortOrder === 'Menor precio') {
+    sortedProducts = [...filteredProducts].sort((a, b) => a.price - b.price);
+  } else if (sortOrder === 'Mayor precio') {
+    sortedProducts = [...filteredProducts].sort((a, b) => b.price - a.price);
+  }
+
+  // Paginación
+  const totalPages = Math.ceil(sortedProducts.length / PRODUCTS_PER_PAGE);
+  const paginatedProducts = sortedProducts.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#EEE5E9' }}>
@@ -700,37 +717,7 @@ function ProductosPage() {
                 </div>
               </div>
 
-              {/* Ubicación */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg mb-4">Ubicación</h3>
-                <div className="space-y-2">
-                  {userLocation && (
-                    <button
-                      onClick={() => setLocation('Cercanos')}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                        location === 'Cercanos'
-                          ? 'bg-orange-500 text-white'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      🎯 Cercanos a mí
-                    </button>
-                  )}
-                  {locations.map((loc) => (
-                    <button
-                      key={loc}
-                      onClick={() => setLocation(loc)}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                        location === loc
-                          ? 'bg-orange-500 text-white'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {loc}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              
             </div>
 
             {/* Grid de Productos */}
@@ -792,7 +779,14 @@ function ProductosPage() {
                       <span className="text-sm ml-2">a {searchRadius} km de tu ubicación</span>
                     )}
                   </p>
-                  <select className="px-4 py-2 border rounded-lg">
+                  <select
+                    className="px-4 py-2 border rounded-lg"
+                    value={sortOrder}
+                    onChange={e => {
+                      setSortOrder(e.target.value);
+                      setCurrentPage(1); // Reiniciar a la primera página al cambiar orden
+                    }}
+                  >
                     <option>Más recientes</option>
                     <option>Menor precio</option>
                     <option>Mayor precio</option>
@@ -853,7 +847,7 @@ function ProductosPage() {
                     </button>
                   </div>
                 ) : (
-                  sortedProducts.map((product) => {
+                  paginatedProducts.map((product) => {
                     const distance = userLocation && location === 'Cercanos' && product.coords
                       ? calculateDistance(userLocation.lat, userLocation.lng, product.coords.lat, product.coords.lng)
                       : null;
@@ -862,6 +856,34 @@ function ProductosPage() {
                   })
                 )}
               </div>
+              {/* Controles de paginación */}
+              {sortedProducts.length > 0 && (
+                <div className="flex justify-center mt-8 gap-2">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`px-4 py-2 rounded-lg font-semibold border-2 ${currentPage === 1 ? 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                  >
+                    Anterior
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-4 py-2 rounded-lg font-semibold border-2 ${currentPage === i + 1 ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`px-4 py-2 rounded-lg font-semibold border-2 ${currentPage === totalPages ? 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -15,12 +15,16 @@ import { IoGameController } from 'react-icons/io5';
   };
 import LocationPicker from '../components/common/LocationPicker';
 
+
 function MisProductosPage() {
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [editModal, setEditModal] = useState({ show: false, product: null });
   const [editLoading, setEditLoading] = useState(false);
+  const [sortOrder, setSortOrder] = useState('default'); // 'default', 'asc', 'desc'
+  const [currentPage, setCurrentPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 6;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -274,6 +278,22 @@ function MisProductosPage() {
     );
   }
 
+
+  // Ordenar productos según el filtro seleccionado
+  let productosOrdenados = [...productos];
+  if (sortOrder === 'asc') {
+    productosOrdenados.sort((a, b) => (parseFloat(a.precio) || 0) - (parseFloat(b.precio) || 0));
+  } else if (sortOrder === 'desc') {
+    productosOrdenados.sort((a, b) => (parseFloat(b.precio) || 0) - (parseFloat(a.precio) || 0));
+  }
+
+  // Paginación
+  const totalPages = Math.ceil(productosOrdenados.length / PRODUCTS_PER_PAGE);
+  const paginatedProducts = productosOrdenados.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="sb-container">
@@ -291,81 +311,123 @@ function MisProductosPage() {
           </Link>
         </div>
 
-        {productos.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4">
-            {productos.map((producto) => (
-              <div key={producto.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all">
-                <div className="flex flex-col md:flex-row gap-6">
-                  {/* Imagen del producto */}
-                  <div className="w-full md:w-32 h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {producto.imagen && producto.imagen.startsWith('http') ? (
-                      <img 
-                        src={producto.imagen} 
-                        alt={producto.nombre}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-full h-full flex items-center justify-center text-6xl ${producto.imagen && producto.imagen.startsWith('http') ? 'hidden' : ''}`}>
-                      {producto.imagen && producto.imagen.startsWith('http') ? '📦' : producto.imagen}
-                    </div>
-                  </div>
+        {/* Filtro de ordenamiento por precio */}
+        <div className="mb-6 flex flex-row gap-4 items-center">
+          <label className="font-semibold text-gray-700">Ordenar por precio:</label>
+          <select
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value)}
+            className="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none"
+          >
+            <option value="default">Sin ordenar</option>
+            <option value="asc">Menor a mayor</option>
+            <option value="desc">Mayor a menor</option>
+          </select>
+        </div>
 
-                  {/* Información del producto */}
-                  <div className="flex-1">
-                    <div className="flex flex-col sm:flex-row justify-between items-start mb-3 gap-3">
-                      <div>
-                        <h3 className="font-bold text-xl text-gray-900 mb-1">{producto.nombre}</h3>
-                        <p className="text-sm text-gray-500">{producto.categoria} • Publicado el {new Date(producto.fecha).toLocaleDateString('es-EC')}</p>
+        {paginatedProducts.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 gap-4">
+              {paginatedProducts.map((producto) => (
+                <div key={producto.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {/* Imagen del producto */}
+                    <div className="w-full md:w-32 h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {producto.imagen && producto.imagen.startsWith('http') ? (
+                        <img 
+                          src={producto.imagen} 
+                          alt={producto.nombre}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center text-6xl ${producto.imagen && producto.imagen.startsWith('http') ? 'hidden' : ''}`}>
+                        {producto.imagen && producto.imagen.startsWith('http') ? '📦' : producto.imagen}
                       </div>
-                      <span className={`px-4 py-1 rounded-full text-sm font-semibold whitespace-nowrap ${
-                        producto.estado === 'Activo'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {producto.estado}
-                      </span>
                     </div>
 
-                    <div className="flex items-center gap-6 mb-4 flex-wrap">
-                      <span className="text-orange-600 font-bold text-2xl">${producto.precio}</span>
-                      <span className="flex items-center gap-2 text-gray-600">
-                       
-                      </span>
-                    </div>
+                    {/* Información del producto */}
+                    <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row justify-between items-start mb-3 gap-3">
+                        <div>
+                          <h3 className="font-bold text-xl text-gray-900 mb-1">{producto.nombre}</h3>
+                          <p className="text-sm text-gray-500">{producto.categoria} • Publicado el {new Date(producto.fecha).toLocaleDateString('es-EC')}</p>
+                        </div>
+                        <span className={`px-4 py-1 rounded-full text-sm font-semibold whitespace-nowrap ${
+                          producto.estado === 'Activo'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {producto.estado}
+                        </span>
+                      </div>
 
-                    {/* Botones de acción */}
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        onClick={() => handleEditar(producto.id)}
-                        className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
-                      >
-                        <FiEdit />
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleEliminar(producto.id, producto.nombre)}
-                        className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-semibold"
-                      >
-                        <FiTrash2 />
-                        Eliminar
-                      </button>
-                      <Link
-                        to={`/producto/${producto.id}`}
-                        className="px-5 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
-                      >
-                        <FiEye />
-                        Ver publicación
-                      </Link>
+                      <div className="flex items-center gap-6 mb-4 flex-wrap">
+                        <span className="text-orange-600 font-bold text-2xl">${producto.precio}</span>
+                        <span className="flex items-center gap-2 text-gray-600">
+                         
+                        </span>
+                      </div>
+
+                      {/* Botones de acción */}
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={() => handleEditar(producto.id)}
+                          className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-semibold"
+                        >
+                          <FiEdit />
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleEliminar(producto.id, producto.nombre)}
+                          className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-semibold"
+                        >
+                          <FiTrash2 />
+                          Eliminar
+                        </button>
+                        <Link
+                          to={`/producto/${producto.id}`}
+                          className="px-5 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 font-semibold"
+                        >
+                          <FiEye />
+                          Ver publicación
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {/* Controles de paginación */}
+            <div className="flex justify-center mt-8 gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-lg font-semibold border-2 ${currentPage === 1 ? 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+              >
+                Anterior
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-4 py-2 rounded-lg font-semibold border-2 ${currentPage === i + 1 ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-lg font-semibold border-2 ${currentPage === totalPages ? 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+              >
+                Siguiente
+              </button>
+            </div>
+          </>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <div className="text-6xl mb-4">📦</div>
