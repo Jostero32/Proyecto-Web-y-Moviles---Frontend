@@ -484,7 +484,7 @@ function ChatPage() {
               id: product.id,
               title: product.title,
               price: product.price,
-              image: product.photos?.[0] ? `${API_BASE_URL}${product.photos[0]}` : '📦'
+              image: product.ProductPhotos?.[0]?.url ? `${API_BASE_URL}${product.ProductPhotos[0].url}` : '📦'
             } : {
               id: conversation.productId,
               title: 'Producto no disponible',
