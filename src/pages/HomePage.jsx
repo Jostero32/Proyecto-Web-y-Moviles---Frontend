@@ -22,7 +22,7 @@ import {
 } from 'react-icons/io5';
 import { MdVerified, MdSecurity, MdDashboard } from 'react-icons/md';
 import { useState, useEffect } from 'react';
-import { productAPI, categoryAPI, favoriteAPI, authAPI } from '../services/api';
+import { productAPI, categoryAPI, favoriteAPI, authAPI, API_BASE_URL } from '../services/api';
 import AuthLink from '../components/common/AuthLink';
 import Modal from '../components/common/Modal';
 
@@ -256,19 +256,27 @@ function HomePage() {
           productAPI.getAll(),
           categoryAPI.getAll()
         ]);
-        
+
         // Tomar solo los primeros 8 productos para destacados
         setProducts(productsData.slice(0, 8));
-        
-        // Mapear categorías del backend con iconos estáticos
+
+        // Calcular conteo real de productos por categoría
+        const categoryCounts = {};
+        productsData.forEach(prod => {
+          if (prod.categoryId) {
+            categoryCounts[prod.categoryId] = (categoryCounts[prod.categoryId] || 0) + 1;
+          }
+        });
+
+        // Mapear categorías del backend con iconos estáticos y conteo real
         const mappedCategories = categoriesData.slice(0, 6).map((cat, index) => ({
           ...categoryIcons[index % categoryIcons.length],
           title: cat.name,
-          count: '0', // Por ahora 0, se puede calcular después
+          count: categoryCounts[cat.id] || 0,
           id: cat.id
         }));
         setCategories(mappedCategories);
-        
+
       } catch (error) {
         console.error('Error al cargar datos:', error);
         // Mantener categorías estáticas en caso de error
@@ -281,11 +289,14 @@ function HomePage() {
     fetchData();
   }, []);
 
-  // Función para obtener la primera imagen de un producto
+  // Función para obtener la primera imagen de un producto (URL absoluta si es relativa)
   const getProductImage = (product) => {
     if (product.ProductPhotos && product.ProductPhotos.length > 0) {
       const sortedPhotos = product.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
-      return sortedPhotos[0].url;
+      const url = sortedPhotos[0].url;
+      if (!url) return null;
+      // Si la URL no empieza con http, prepende API_BASE_URL
+      return url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     }
     return null;
   };
@@ -479,7 +490,7 @@ function HomePage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
             {[
               { icon: IoCheckmarkCircle, text: 'Sin comisiones ocultas', color: '#CF5C36' },
-              { icon: HiTruck, text: 'Envíos a todo Ecuador', color: '#EFC88B' },
+              { icon: FiUsers, text: 'Comunidad activa', color: '#EFC88B' },
               { icon: FiClock, text: 'Soporte 24/7', color: '#7C7C7C' },
               { icon: FiDollarSign, text: 'Pagos seguros', color: '#CF5C36' },
             ].map((item, index) => (
@@ -543,9 +554,9 @@ function HomePage() {
                     image={imageUrl ? imageUrl : '📦'}
                     title={product.title}
                     price={product.price}
-                    location="Por definir" // El backend no tiene ubicación por ahora
-                    isNew={product.status === 'activo'}
-                    verified={true} // Por defecto true por ahora
+                    location={product.location || 'Ubicación no especificada'}
+                    isNew={product.status === 'active'}
+                    verified={!!product.sellerId}
                     isImageUrl={!!imageUrl}
                   />
                 );
