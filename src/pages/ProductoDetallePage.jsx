@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Modal from '../components/common/Modal';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FiMapPin, 
@@ -21,6 +22,18 @@ import {
 
 // Componente para mostrar detalles del producto con funcionalidad de favoritos
 function ProductoDetallePage() {
+  // Estado para modal de compartir
+  const [shareModal, setShareModal] = useState(false);
+  // Función para copiar la URL al portapapeles y mostrar modal
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareModal(true);
+      setTimeout(() => setShareModal(false), 1500);
+    } catch (err) {
+      alert('No se pudo copiar la URL');
+    }
+  };
   const { id } = useParams();
   const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState(0);
@@ -478,13 +491,27 @@ function ProductoDetallePage() {
                             } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             <FiHeart className={`${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-700'} ${favoriteLoading ? 'animate-pulse' : ''} transition-colors`} />
-                            {favoriteLoading ? 'Actualizando...' : (isFavorite ? 'Guardado' : '🤍 Guardar')}
+                            {favoriteLoading ? 'Actualizando...' : (isFavorite ? 'Guardado' : 'Guardar')}
                           </button>
 
-                          <button className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 transition-all flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleShare}
+                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:border-gray-400 transition-all flex items-center justify-center gap-2"
+                          >
                             <FiShare2 />
                             Compartir
                           </button>
+      {/* Modal de URL copiada */}
+      <Modal
+        isOpen={shareModal}
+        onClose={() => setShareModal(false)}
+        type="info"
+        title="URL copiada"
+        message="El enlace del producto ha sido copiado al portapapeles."
+        hideCloseButton
+        centered
+      />
                         </div>
                       </>
                     );

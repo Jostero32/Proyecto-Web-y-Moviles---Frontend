@@ -354,21 +354,7 @@ function MiPerfilPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <FiMapPin className="text-orange-600" />
-                    Dirección
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    disabled={true} // Temporalmente deshabilitado - backend no soporta actualizar address
-                    placeholder="Calle, número, ciudad"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
-                  />
-                </div>
+               
               </div>
 
               {/* Sección de cambio de contraseña */}

@@ -1,8 +1,30 @@
-import { Link } from 'react-router-dom';
+
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiChevronRight, FiTrendingUp } from 'react-icons/fi';
-import { categoriesData } from '../data/categories';
+import { categoryAPI } from '../services/api';
 
 function CategoriasPage() {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        const backendCategories = await categoryAPI.getMain();
+        setCategories(backendCategories);
+      } catch (error) {
+        setCategories([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Simuladas, puedes reemplazar por trending real si lo tienes
   const trendingCategories = [
     { name: 'Celulares iPhone', count: 2345 },
     { name: 'Laptops Gaming', count: 1890 },
@@ -32,54 +54,54 @@ function CategoriasPage() {
       {/* Categorías Principales */}
       <section className="py-16">
         <div className="sb-container">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {categoriesData.map((category, index) => (
-              <div
-                key={index}
-                className="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
-              >
-                <div className="flex items-start gap-6 mb-6">
-                  <div
-                    className="w-20 h-20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"
-                    style={{ backgroundColor: `${category.color}15` }}
-                  >
-                    <category.icon className="text-4xl" style={{ color: category.color }} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:scale-105 transition-transform">
-                      {category.title}
-                    </h3>
-                    <p className="text-sm font-medium" style={{ color: category.color }}>
-                      {category.count} productos
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-gray-600 mb-4">{category.description}</p>
-
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {category.subcategories.map((sub, idx) => (
-                    <Link
-                      key={idx}
-                      to={`/productos?category=${category.value}&subcategory=${sub.value}`}
-                      className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
-                    >
-                      {sub.label}
-                    </Link>
-                  ))}
-                </div>
-
-                <Link
-                  to={`/productos?category=${category.value}`}
-                  className="inline-flex items-center gap-2 text-sm font-bold group-hover:gap-3 transition-all"
-                  style={{ color: category.color }}
+          {loading ? (
+            <div className="text-center text-gray-500 text-xl py-20">Cargando categorías...</div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2"
                 >
-                  Ver productos
-                  <FiChevronRight className="text-lg" />
-                </Link>
-              </div>
-            ))}
-          </div>
+                  <div className="flex items-start gap-6 mb-6">
+                    <div
+                      className="w-20 h-20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform bg-orange-50"
+                    >
+                      <FiTrendingUp className="text-4xl" style={{ color: '#CF5C36' }} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:scale-105 transition-transform">
+                        {category.name}
+                      </h3>
+                      <p className="text-sm font-medium text-orange-600">
+                        {category.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {category.subcategories && category.subcategories.length > 0 && category.subcategories.map((sub) => (
+                      <button
+                        key={sub.id}
+                        onClick={() => navigate(`/productos?categoryId=${category.id}&subcategory=${sub.id}`)}
+                        className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
+                      >
+                        {sub.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => navigate(`/productos?categoryId=${category.id}`)}
+                    className="inline-flex items-center gap-2 text-sm font-bold group-hover:gap-3 transition-all text-orange-600"
+                  >
+                    Ver productos
+                    <FiChevronRight className="text-lg" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

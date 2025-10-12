@@ -224,7 +224,18 @@ function ProductosPage() {
     }
 
     if (subcategoryFromUrl) {
-      setSelectedSubcategory(subcategoryFromUrl);
+      // Si es un número, usar como ID, si no, buscar el ID por nombre
+      if (!isNaN(subcategoryFromUrl)) {
+        setSelectedSubcategory(subcategoryFromUrl);
+      } else if (backendCategories.length > 0) {
+        const found = backendCategories
+          .flatMap(cat => cat.subcategories || [])
+          .find(sub => sub.name.toLowerCase() === subcategoryFromUrl.toLowerCase());
+        if (found) setSelectedSubcategory(found.id);
+        else setSelectedSubcategory(subcategoryFromUrl);
+      } else {
+        setSelectedSubcategory(subcategoryFromUrl);
+      }
     }
   }, [searchParams]);
 
