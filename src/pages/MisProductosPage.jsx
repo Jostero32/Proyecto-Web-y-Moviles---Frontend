@@ -494,6 +494,26 @@ function MisProductosPage() {
 
     const handleImageUpload = (e) => {
       const files = Array.from(e.target.files);
+      const totalImages = formData.images.length + files.length;
+      if (totalImages > 10) {
+        const allowed = 10 - formData.images.length;
+        let newImages = [];
+        if (allowed > 0) {
+          newImages = files.slice(0, allowed).map((file) => ({
+            file: file,
+            isExisting: false,
+            name: file.name,
+            preview: URL.createObjectURL(file)
+          }));
+          setFormData({ ...formData, images: [...formData.images, ...newImages] });
+        }
+        if (typeof window.showNotification === 'function') {
+          window.showNotification('error', 'Solo puedes subir un máximo de 10 imágenes.');
+        } else {
+          alert('Solo puedes subir un máximo de 10 imágenes.');
+        }
+        return;
+      }
       // Convertir archivos File a objetos con isExisting: false
       const newImages = files.map((file) => ({
         file: file,

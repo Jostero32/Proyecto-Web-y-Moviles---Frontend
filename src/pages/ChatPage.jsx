@@ -72,6 +72,7 @@ function ChatPage() {
   const [message, setMessage] = useState('');
   const [conversations, setConversations] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
+  const [avatarImgError, setAvatarImgError] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -79,6 +80,11 @@ function ChatPage() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  // Resetear error de imagen de avatar al cambiar de chat
+  useEffect(() => {
+    setAvatarImgError(false);
+  }, [selectedChat?.vendorImage]);
 
   // WebSocket hooks
   const { 
@@ -705,18 +711,12 @@ function ChatPage() {
                   
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
-                      {selectedChat.vendorImage ? (
-                        <img 
-                          src={selectedChat.vendorImage} 
+                      {selectedChat.vendorImage && selectedChat.vendorImage !== '' && !selectedChat.vendorImage.endsWith('undefined') && !avatarImgError ? (
+                        <img
+                          src={selectedChat.vendorImage}
                           alt={selectedChat.vendorName}
                           className="w-10 h-10 rounded-full object-cover border-2 border-orange-200"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const fallback = document.createElement('div');
-                            fallback.className = 'w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold';
-                            fallback.textContent = selectedChat.vendorAvatar;
-                            e.target.parentElement.appendChild(fallback);
-                          }}
+                          onError={() => setAvatarImgError(true)}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold">
@@ -791,61 +791,65 @@ function ChatPage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : Array.isArray(messages) && messages.length > 0 ? (
                     messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}
-                      ref={msg.sender !== 'me' ? (el) => setMessageRef(msg.id, el) : null}
-                      data-message-id={msg.id}
-                      data-message-status={msg.status}
-                    >
-                      <div className={`max-w-md ${msg.sender === 'me' ? 'order-2' : 'order-1'}`}>
-                        {msg.sender === 'vendor' && (
-                          <div className="flex items-end gap-2 mb-1">
-                            {selectedChat.vendorImage ? (
-                              <img 
-                                src={selectedChat.vendorImage} 
-                                alt={selectedChat.vendorName}
-                                className="w-6 h-6 rounded-full object-cover border border-orange-200"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const fallback = document.createElement('div');
-                                  fallback.className = 'w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold';
-                                  fallback.textContent = selectedChat.vendorAvatar;
-                                  e.target.parentElement.appendChild(fallback);
-                                }}
-                              />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
-                                {selectedChat.vendorAvatar}
-                              </div>
-                            )}
-                            <p className="text-xs font-semibold text-gray-600">{selectedChat.vendorName}</p>
-                          </div>
-                        )}
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}
+                        ref={msg.sender !== 'me' ? (el) => setMessageRef(msg.id, el) : null}
+                        data-message-id={msg.id}
+                        data-message-status={msg.status}
+                      >
+                        <div className={`max-w-md ${msg.sender === 'me' ? 'order-2' : 'order-1'}`}>
+                          {msg.sender === 'vendor' && (
+                            <div className="flex items-end gap-2 mb-1">
+                              {selectedChat.vendorImage ? (
+                                <img 
+                                  src={selectedChat.vendorImage} 
+                                  alt={selectedChat.vendorName}
+                                  className="w-6 h-6 rounded-full object-cover border border-orange-200"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    const fallback = document.createElement('div');
+                                    fallback.className = 'w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold';
+                                    fallback.textContent = selectedChat.vendorAvatar;
+                                    e.target.parentElement.appendChild(fallback);
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
+                                  {selectedChat.vendorAvatar}
+                                </div>
+                              )}
+                              <p className="text-xs font-semibold text-gray-600">{selectedChat.vendorName}</p>
+                            </div>
+                          )}
 
-                        <div
-                          className={`px-4 py-3 rounded-2xl shadow-sm ${
-                            msg.sender === 'me'
-                              ? 'bg-orange-600 text-white rounded-br-sm'
-                              : 'bg-gray-100 text-gray-900 rounded-bl-sm'
-                          }`}
-                        >
-                          <p className="text-sm leading-relaxed">{msg.text}</p>
-                        </div>
-                        <div className={`flex items-center mt-1 px-1 gap-1 ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
-                          <p className="text-xs text-gray-400">
-                            {msg.timestamp}
-                          </p>
-                          <MessageStatusIcon 
-                            status={msg.status || 'sent'} 
-                            isOwn={msg.sender === 'me'} 
-                          />
+                          <div
+                            className={`px-4 py-3 rounded-2xl shadow-sm ${
+                              msg.sender === 'me'
+                                ? 'bg-orange-600 text-white rounded-br-sm'
+                                : 'bg-gray-100 text-gray-900 rounded-bl-sm'
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{msg.text}</p>
+                          </div>
+                          <div className={`flex items-center mt-1 px-1 gap-1 ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
+                            <p className="text-xs text-gray-400">
+                              {msg.timestamp}
+                            </p>
+                            <MessageStatusIcon 
+                              status={msg.status || 'sent'} 
+                              isOwn={msg.sender === 'me'} 
+                            />
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-gray-400 py-8">
+                      No hay mensajes para mostrar o hubo un error al cargarlos.
                     </div>
-                  ))
                   )}
                   
                   {/* Indicador de "escribiendo" */}

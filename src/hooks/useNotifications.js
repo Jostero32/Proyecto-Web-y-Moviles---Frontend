@@ -176,42 +176,44 @@ export const useNotifications = () => {
   const recentNotifications = notifications.slice(0, 10);
 
   // Configurar listeners de WebSocket - Solo para la primera instancia
+  // Singleton para listeners de notificaciones (evita duplicados en hot reload y múltiples hooks)
   useEffect(() => {
-    // Verificar si ya hay una instancia manejando WebSocket listeners
-    if (window.notificationListenerActive) {
-      return;
+    if (!window.__wsNotificationListener) {
+      window.__wsNotificationListener = true;
+      let lastMessageId = null;
+      const handleNewMessage = (payload) => {
+        // Solo crear notificación si el mensaje no es del usuario actual y no es duplicado
+        if (
+          payload.senderId &&
+          payload.senderId !== webSocketService.currentUserId &&
+          payload.id !== lastMessageId
+        ) {
+          lastMessageId = payload.id;
+          const notificationPayload = {
+            id: `msg_${payload.id}_${Date.now()}`,
+            title: 'Nuevo mensaje',
+            message: 'Tienes un mensaje nuevo',
+            typeId: 1,
+            userId: webSocketService.currentUserId,
+            createdAt: payload.sentAt || payload.createdAt || new Date().toISOString(),
+            originalMessage: payload,
+            conversationId: payload.conversationId,
+            senderId: payload.senderId
+          };
+          addNotification(notificationPayload);
+        }
+      };
+      webSocketService.on('newMessage', handleNewMessage);
+      window.__wsNotificationCleanup = () => {
+        webSocketService.off('newMessage', handleNewMessage);
+        window.__wsNotificationListener = false;
+      };
     }
-
-    // Marcar que esta instancia maneja los listeners
-    window.notificationListenerActive = true;
-
-    const handleNewMessage = async (payload) => {
-      // Solo crear notificación si el mensaje no es del usuario actual
-      if (payload.senderId && payload.senderId !== webSocketService.currentUserId) {
-        const notificationPayload = {
-          id: `msg_${payload.id}_${Date.now()}`, // ID único para notificación
-          title: 'Nuevo mensaje',
-          message: 'Tienes un mensaje nuevo',
-          typeId: 1, // Tipo mensaje
-          userId: webSocketService.currentUserId,
-          createdAt: payload.sentAt || payload.createdAt || new Date().toISOString(),
-          originalMessage: payload,
-          // Información adicional para poder navegar al chat
-          conversationId: payload.conversationId,
-          senderId: payload.senderId
-        };
-
-        addNotification(notificationPayload);
-      }
-    };
-
-    // Registrar listeners
-    webSocketService.on('newMessage', handleNewMessage);
-
     return () => {
-      // Limpiar listeners y liberar el flag
-      webSocketService.off('newMessage', handleNewMessage);
-      window.notificationListenerActive = false;
+      if (window.__wsNotificationCleanup) {
+        window.__wsNotificationCleanup();
+        window.__wsNotificationCleanup = null;
+      }
     };
   }, [addNotification]);
 

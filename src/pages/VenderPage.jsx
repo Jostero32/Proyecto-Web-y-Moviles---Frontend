@@ -183,6 +183,19 @@ function VenderPage() {
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
+    const totalImages = formData.images.length + files.length;
+    if (totalImages > 10) {
+      const allowed = 10 - formData.images.length;
+      if (allowed > 0) {
+        setFormData({ ...formData, images: [...formData.images, ...files.slice(0, allowed)] });
+      }
+      if (typeof showNotification === 'function') {
+        showNotification('error', 'Solo puedes subir un máximo de 10 imágenes.');
+      } else {
+        alert('Solo puedes subir un máximo de 10 imágenes.');
+      }
+      return;
+    }
     setFormData({ ...formData, images: [...formData.images, ...files] });
   };
 
