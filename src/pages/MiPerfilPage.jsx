@@ -159,12 +159,7 @@ function MiPerfilPage() {
       showNotification('success', 'Perfil actualizado exitosamente');
       setIsEditing(false);
     } catch (error) {
-      console.error('Error al actualizar perfil:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
+      // Error al actualizar perfil
       showNotification('error', `Error al actualizar el perfil: ${error.response?.data?.message || error.message || 'Inténtalo de nuevo'}`);
     } finally {
       setIsLoading(false);
@@ -233,12 +228,7 @@ function MiPerfilPage() {
         
         showNotification('success', 'Avatar actualizado exitosamente');
       } catch (error) {
-        console.error('Error al actualizar avatar:', error);
-        console.error('Avatar error details:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        });
+        // Error al actualizar avatar
         showNotification('error', `Error al actualizar el avatar: ${error.response?.data?.message || error.message || 'Inténtalo de nuevo'}`);
         // Limpiar preview si hay error
         setPreviewImage(null);

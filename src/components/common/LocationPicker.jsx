@@ -54,8 +54,8 @@ function LocationMarker({ position, setPosition, setAddress }) {
 
           setAddress(displayAddress || data.display_name);
         })
-        .catch(err => {
-          console.error('Error obteniendo dirección:', err);
+        .catch(() => {
+          // Error obteniendo dirección
           setAddress(`${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`);
         });
     },
@@ -109,8 +109,8 @@ function LocationPicker({ onLocationSelect, onClose, initialPosition = null }) {
               setLoading(false);
             });
         },
-        (error) => {
-          console.error('Error obteniendo ubicación:', error);
+        () => {
+          // Error obteniendo ubicación
           alert('No se pudo obtener tu ubicación. Por favor, selecciona manualmente en el mapa.');
           setLoading(false);
         },

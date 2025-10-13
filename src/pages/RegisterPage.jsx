@@ -61,7 +61,7 @@ function RegisterPage() {
         avatarUrl: file // Guardamos el File original
       }));
       
-      console.log('Archivo seleccionado:', file.name, 'Tamaño:', (file.size / 1024).toFixed(2) + ' KB');
+  // Archivo seleccionado: file.name, Tamaño: (file.size / 1024).toFixed(2) + ' KB'
       
     } else {
       // Si no hay archivo, limpiar el preview
@@ -131,28 +131,27 @@ function RegisterPage() {
       if (formData.avatarUrl && formData.avatarUrl instanceof File) {
         registerFormData.append('avatar', formData.avatarUrl);
       }
-      
-      console.log('Enviando FormData con campos:');
-      for (let [key, value] of registerFormData.entries()) {
-        console.log(`${key}:`, value instanceof File ? `File(${value.name})` : value);
-      }
-      
-      const response = await authAPI.register(registerFormData);
-      
+
+      // Enviando FormData con campos (debug solo en desarrollo)
+      // for (let [key, value] of registerFormData.entries()) {
+      //   key: value instanceof File ? `File(${value.name})` : value
+      // }
+
+  await authAPI.register(registerFormData);
+
       // Mostrar mensaje de éxito
       setSuccess('¡Cuenta creada exitosamente! Redirigiendo al login...');
-      console.log('Registro exitoso:', response);
-      
+
       // Redirigir al login después de 2 segundos
       setTimeout(() => {
         navigate('/login');
       }, 2000);
       
     } catch (error) {
-      console.error('Error en registro:', error);
-      console.error('Error response:', error.response?.data); // Para debug
-      console.error('Error code:', error.code); // Para debug
-      console.error('Error message:', error.message); // Para debug
+  // Error en registro: error
+  // Error response: error.response?.data
+  // Error code: error.code
+  // Error message: error.message
       
       // Manejar diferentes tipos de errores
       if (error.code === 'ECONNABORTED') {

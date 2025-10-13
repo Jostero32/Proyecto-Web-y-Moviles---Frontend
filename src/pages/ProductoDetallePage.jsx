@@ -31,7 +31,7 @@ function ProductoDetallePage() {
       setShareModal(true);
       setTimeout(() => setShareModal(false), 1500);
     } catch (err) {
-      alert('No se pudo copiar la URL');
+      alert('No se pudo copiar la URL', err);
     }
   };
   const { id } = useParams();
@@ -71,8 +71,8 @@ function ProductoDetallePage() {
                 categoryInfo = productCategory.name;
               }
             }
-          } catch (error) {
-            console.error('Error obteniendo categorías:', error);
+          } catch {
+            // Error obteniendo categorías
           }
         }
         
@@ -93,8 +93,8 @@ function ProductoDetallePage() {
               avatar: sellerData.avatarUrl ? 
                 (sellerData.avatarUrl.startsWith('http') ? sellerData.avatarUrl : `${API_BASE_URL}${sellerData.avatarUrl}`) : null
             };
-          } catch (error) {
-            console.error('Error obteniendo datos del vendedor:', error);
+          } catch {
+            // Error obteniendo datos del vendedor
           }
         }
         
@@ -126,12 +126,12 @@ function ProductoDetallePage() {
           try {
             const isFav = await favoriteAPI.isFavorite(id);
             setIsFavorite(isFav);
-          } catch (error) {
-            console.error('Error verificando favorito:', error);
+          } catch {
+            // Error verificando favorito
           }
         }
-      } catch (error) {
-        console.error('Error cargando producto:', error);
+      } catch  {
+  // Error cargando producto
         setError('Error al cargar el producto');
       } finally {
         setLoading(false);
@@ -174,22 +174,22 @@ function ProductoDetallePage() {
           navigate(`/chat/${existingConversation.id}`);
           return;
         }
-      } catch (error) {
-        console.log('Error verificando conversaciones existentes:', error);
+      } catch {
+  // Error verificando conversaciones existentes
       }
 
       // Si no existe conversación, crear una nueva
       try {
         const newConversation = await conversationAPI.createConversation(product.id, product.sellerId);
         navigate(`/chat/${newConversation.id}`);
-      } catch (createError) {
-        console.error('Error creando conversación:', createError);
+      } catch {
+  // Error creando conversación
         // Como fallback, ir al chat general donde se podrán ver las conversaciones
         navigate('/chat');
       }
 
-    } catch (error) {
-      console.error('Error al contactar vendedor:', error);
+    } catch {
+  // Error al contactar vendedor
       alert('Error al iniciar conversación. Inténtalo de nuevo.');
     } finally {
       setContactingVendor(false);
@@ -208,24 +208,24 @@ function ProductoDetallePage() {
       setFavoriteLoading(true);
 
       const productId = parseInt(id);
-      console.log('Toggling favorite for product:', productId, 'Current state:', isFavorite);
+  // Toggling favorite for product
 
       if (isFavorite) {
         // Quitar de favoritos
-        console.log('Removing from favorites...');
+  // Removing from favorites
         await favoriteAPI.removeFavorite(productId);
         setIsFavorite(false);
-        console.log('Removed successfully');
+          // Removed successfully
       } else {
         // Agregar a favoritos  
-        console.log('Adding to favorites...');
+  // Adding to favorites
         await favoriteAPI.addFavorite(productId);
         setIsFavorite(true);
-        console.log('Added successfully');
+          // Added successfully
       }
     } catch (error) {
-      console.error('Error al manejar favorito:', error);
-      console.error('Error response:', error.response?.data);
+  // Error al manejar favorito
+  // Error response: error.response?.data
       
       // Manejar casos específicos
       if (error.response?.status === 400) {
@@ -233,7 +233,7 @@ function ProductoDetallePage() {
         
         if (errorMsg.includes('ya está en favoritos') || errorMsg.includes('already')) {
           // El producto ya está en favoritos, actualizar estado local
-          console.log('Product already in favorites, updating local state');
+          // Product already in favorites, updating local state
           setIsFavorite(true);
           return;
         }

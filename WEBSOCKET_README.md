@@ -1,220 +1,125 @@
-# Sistema de WebSocket - Chat en Tiempo Real
 
-## 🚀 Descripción
+# WebSocket Frontend - Documentación de Integración
 
-Este sistema reemplaza el polling HTTP con WebSockets para proporcionar comunicación en tiempo real entre usuarios. Incluye mensajería instantánea, notificaciones push y indicadores de estado.
+## 🚀 ¿Qué hace este sistema?
+Permite chat y notificaciones en tiempo real usando WebSocket, eliminando el polling HTTP. Incluye reconexión automática, heartbeat, indicadores de "escribiendo", y fallback a HTTP si el WebSocket falla.
 
-## 📁 Archivos Implementados
+---
 
-### 1. **`src/services/websocket.js`** - Servicio WebSocket Principal
-- **Funcionalidades**:
-  - Conexión automática con autenticación JWT
-  - Reconexión automática con backoff exponencial
-  - Sistema de heartbeat para mantener conexión viva
-  - Manejo de eventos de mensajes y notificaciones
-  - Sistema de eventos personalizado
+## � Estructura y Archivos Clave
 
-- **Configuración**:
-```javascript
-const config = {
-  url: 'ws://localhost:8080', // Cambiar según tu backend
-  heartbeatInterval: 30000,   // 30 segundos
-  reconnectBackoff: 1.5
-};
+- `src/services/websocket.js`: Servicio singleton para conexión, reconexión, heartbeat y envío/recepción de eventos.
+- `src/hooks/useWebSocket.js`: Hooks React para manejar conexión, mensajes y notificaciones en tiempo real.
+- `src/pages/ChatPage.jsx`: Chat UI que consume el WebSocket y muestra mensajes/notificaciones en tiempo real.
+- `src/pages/NotificacionesPage.jsx`: Notificaciones push en tiempo real.
+
+---
+
+## ⚙️ Configuración y Uso
+
+### 1. Configuración de conexión
+El WebSocket se conecta automáticamente usando el JWT y userId:
+
+```js
+const wsUrl = `${websocketConfig.url}?token=${token}&userId=${currentUser.id}`;
+const ws = new WebSocket(wsUrl);
 ```
 
-### 2. **`src/hooks/useWebSocket.js`** - Hooks de React
-- **`useWebSocket()`**: Manejo de conexión WebSocket
-- **`useWebSocketMessages(conversationId)`**: Mensajes en tiempo real por conversación
-- **`useWebSocketNotifications()`**: Notificaciones push
+### 2. Eventos que el Frontend ENVÍA
 
-### 3. **`src/pages/ChatPage.jsx`** - Chat Integrado
-- **Funcionalidades añadidas**:
-  - ✅ Mensajes en tiempo real (sin polling HTTP)
-  - ✅ Indicador de "escribiendo..." 
-  - ✅ Estado de conexión WebSocket visible
-  - ✅ Auto-scroll para nuevos mensajes
-  - ✅ Manejo inteligente de errores
-
-### 4. **`src/pages/NotificacionesPage.jsx`** - Notificaciones en Tiempo Real
-- **Funcionalidades**:
-  - ✅ Estado de conexión WebSocket
-  - ✅ Notificaciones recibidas en tiempo real
-  - ✅ Indicadores visuales de reconexión
-
-## 🔧 Integración en tu Backend
-
-### Eventos WebSocket que el Frontend Envía:
-
-```javascript
+```js
 // Unirse a una conversación
-{
-  "type": "joinConversation",
-  "payload": { "conversationId": 123 }
-}
-
+{ type: 'joinConversation', payload: { conversationId } }
 // Salir de una conversación
-{
-  "type": "leaveConversation", 
-  "payload": { "conversationId": 123 }
-}
-
-// Indicar que está escribiendo
-{
-  "type": "startTyping",
-  "payload": { "conversationId": 123 }
-}
-
-// Dejar de escribir
-{
-  "type": "stopTyping",
-  "payload": { "conversationId": 123 }
-}
-
+{ type: 'leaveConversation', payload: { conversationId } }
+// Enviar mensaje
+{ type: 'chat:send', conversationId, content }
+// Marcar mensaje como leído
+{ type: 'chat:read', messageId }
+// Indicador escribiendo
+{ type: 'startTyping', payload: { conversationId } }
+{ type: 'stopTyping', payload: { conversationId } }
 // Heartbeat
-{
-  "type": "ping",
-  "payload": { "timestamp": 1234567890 }
-}
+{ type: 'ping', payload: { timestamp } }
 ```
 
-### Eventos WebSocket que el Backend debe Enviar:
+### 3. Eventos que el Frontend RECIBE
 
-```javascript
+```js
 // Nuevo mensaje
-{
-  "type": "message",
-  "payload": {
-    "id": 456,
-    "conversationId": 123,
-    "senderId": 789,
-    "content": "Hola!",
-    "sentAt": "2025-01-01T12:00:00Z"
-  }
-}
-
-// Nueva notificación
-{
-  "type": "notification", 
-  "payload": {
-    "id": 101,
-    "title": "Nuevo mensaje",
-    "content": "Tienes un nuevo mensaje de Juan",
-    "timestamp": "2025-01-01T12:00:00Z"
-  }
-}
-
+{ type: 'message' | 'newMessage', payload: { ... } }
+// Confirmación de mensaje enviado
+{ type: 'chat:sent', data: { ... } }
+// Notificación push
+{ type: 'notification:new', data: { ... } }
+// Estado de lectura
+{ type: 'chat:read:update', data: { ... } }
 // Usuario escribiendo
-{
-  "type": "userTyping",
-  "payload": {
-    "conversationId": 123,
-    "userId": 789
-  }
-}
-
-// Usuario dejó de escribir
-{
-  "type": "userStoppedTyping",
-  "payload": {
-    "conversationId": 123,
-    "userId": 789
-  }
-}
-
-// Respuesta al heartbeat
-{
-  "type": "pong",
-  "payload": { "timestamp": 1234567890 }
-}
+{ type: 'typingStart', payload: { ... } }
+// Usuario deja de escribir
+{ type: 'typingStop', payload: { ... } }
+// Estado online/offline
+{ type: 'userOnline' | 'userOffline', payload: { ... } }
+// Heartbeat respuesta
+{ type: 'pong', payload: { timestamp } }
 ```
 
-## 🎯 Comparación: Antes vs Ahora
+---
 
-### ❌ **Sistema Anterior (Polling HTTP)**:
-```javascript
-// Cada 3 segundos hacía esto:
-setInterval(async () => {
-  const messages = await conversationAPI.getConversationMessages(chatId);
-  setMessages(messages);
-}, 3000);
+## 🛡️ Autenticación
+- El backend debe aceptar el token y userId por query params.
+- Validar el JWT antes de aceptar la conexión.
 
-// Problemas:
-// - Latencia de hasta 3 segundos
-// - Muchas requests innecesarias 
-// - Consumo de ancho de banda
-// - No hay indicadores de "escribiendo"
+---
+
+## 🔄 Reconexión y Heartbeat
+- Reconexión automática hasta 5 intentos, con backoff exponencial.
+- Heartbeat cada 30s para mantener la conexión viva.
+- Si el WebSocket muere, el frontend puede seguir usando HTTP como fallback.
+
+---
+
+## 🧩 Ejemplo de Uso en React
+
+```js
+import { websocketService } from '../services/websocket';
+
+// Escuchar mensajes nuevos
+useEffect(() => {
+  websocketService.on('newMessage', (msg) => {
+    // Actualizar UI
+  });
+  return () => websocketService.off('newMessage');
+}, []);
+
+// Enviar mensaje
+websocketService.sendMessage(conversationId, 'Hola!');
 ```
 
-### ✅ **Sistema Nuevo (WebSocket)**:
-```javascript
-// Tiempo real instantáneo:
-webSocketService.on('newMessage', (message) => {
-  addMessage(message); // Inmediato!
-});
+---
 
-// Ventajas:
-// - Latencia < 100ms
-// - Sin requests innecesarias
-// - Menor consumo de recursos
-// - Indicadores de estado en tiempo real
-```
+## � Notas Importantes
+- El WebSocket NO reemplaza la API REST, solo el polling para mensajes/notificaciones.
+- El envío real de mensajes puede seguir usando HTTP como respaldo.
+- El sistema es compatible con el backend REST actual, solo requiere agregar WebSocket server.
 
-## 📊 Métricas de Performance
+---
 
-| Métrica | Polling HTTP | WebSocket |
-|---------|--------------|-----------|
-| **Latencia** | 1-3 segundos | <100ms |
-| **Requests/min** | ~20 requests | 0 requests |
-| **Ancho de banda** | ~50KB/min | ~1KB/min |
-| **Experiencia** | Discontinua | Fluida |
+## 🧪 Pruebas recomendadas
+1. Abrir dos ventanas del chat y enviar mensajes: deben verse al instante.
+2. Probar el indicador "escribiendo...".
+3. Desconectar internet y verificar reconexión automática.
+4. Cerrar sesión y verificar que el WebSocket se desconecta.
 
-## 🛠️ Configuración de Desarrollo
+---
 
-### 1. **Ajustar URL del WebSocket**:
-```javascript
-// En src/services/websocket.js línea 12
-const config = {
-  url: 'ws://localhost:8080', // Cambiar por tu backend
-  // ...
-};
-```
+## � Roadmap (Próximas mejoras)
+- Estado "en línea/desconectado" de usuarios
+- Confirmaciones de lectura
+- Notificaciones push del navegador
+- Archivos multimedia en tiempo real
+- Llamadas de voz/video (WebRTC)
 
-### 2. **Autenticación**:
-El WebSocket se conecta automáticamente usando el JWT del usuario actual. Asegúrate de que tu backend:
-- Acepte el token en query params: `?token=JWT_TOKEN&userId=USER_ID`
-- Valide el token antes de establecer la conexión
+---
 
-### 3. **Manejo de Errores**:
-```javascript
-// El sistema maneja automáticamente:
-// - Desconexiones de red
-// - Reconexión automática (5 intentos)
-// - Fallback a HTTP si WebSocket falla
-// - Heartbeat para detectar conexiones muertas
-```
-
-## 🚨 Notas Importantes
-
-1. **El WebSocket NO reemplaza la API REST** - Solo reemplaza el polling para mensajes en tiempo real
-2. **Envío de mensajes** - Sigue usando HTTP POST, el WebSocket solo notifica a otros usuarios
-3. **Compatibilidad** - Funciona con el backend actual, solo necesita agregar WebSocket server
-4. **Fallback** - Si WebSocket falla, el sistema puede seguir funcionando con HTTP
-
-## 🔮 Próximas Funcionalidades
-
-- [ ] **Estado "en línea/desconectado"** de usuarios
-- [ ] **Confirmaciones de lectura** de mensajes  
-- [ ] **Notificaciones push** del navegador
-- [ ] **Archivos multimedia** en tiempo real
-- [ ] **Llamadas de voz/video** WebRTC
-
-## 🧪 Cómo Probar
-
-1. **Abrir dos ventanas** del chat en diferentes navegadores
-2. **Enviar mensaje** desde una ventana
-3. **Ver actualización instantánea** en la otra ventana
-4. **Escribir mensaje** y ver indicador "escribiendo..." 
-5. **Desconectar internet** y ver reconexión automática
-
-¡El sistema está listo para uso en producción! 🎉
+¡Listo para producción! 🚀

@@ -70,8 +70,7 @@ function LoginPage() {
         // Guardar datos completos
         authAPI.saveAuthData(response.token, completeUserData);
         
-      } catch (userDataError) {
-        console.error('Error obteniendo datos del usuario:', userDataError);
+      } catch {
         // Si falla, mantener datos mínimos del token
         const tokenPayload = JSON.parse(atob(response.token.split('.')[1]));
         const fallbackUserData = {
@@ -82,25 +81,13 @@ function LoginPage() {
         authAPI.saveAuthData(response.token, fallbackUserData);
       }
 
-      console.log('Login exitoso (token en cookie).');
-
       // Redirigir a la página solicitada, desde state o query param, o home por defecto
       const urlParams = new URLSearchParams(window.location.search);
       const redirectUrl = urlParams.get('redirect') || location.state?.from?.pathname || '/';
       navigate(redirectUrl);
-    } catch (error) {
-      console.error('Error en login:', error);
-      
-      // Manejar diferentes tipos de errores
-      if (error.response?.status === 401) {
-        setError('Credenciales incorrectas. Verifica tu email y contraseña.');
-      } else if (error.response?.status === 404) {
-        setError('Usuario no encontrado.');
-      } else if (error.code === 'ECONNREFUSED' || error.message === 'Network Error') {
-        setError('No se puede conectar al servidor. Verifica que el backend esté corriendo.');
-      } else {
-        setError(error.response?.data?.message || 'Error al iniciar sesión. Inténtalo de nuevo.');
-      }
+    } catch {
+      // Error en login
+      setError('Error al iniciar sesión. Inténtalo de nuevo.');
     } finally {
       setIsLoading(false);
     }

@@ -7,7 +7,7 @@ import {
 import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
 import { productAPI, favoriteAPI, authAPI, categoryAPI, API_BASE_URL } from '../services/api';
-import { categoriesData } from '../data/categories';
+
 import LocationPicker from '../components/common/LocationPicker';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
@@ -26,8 +26,8 @@ function ProductCard({ product, distance }) {
         try {
           const isFav = await favoriteAPI.isFavorite(product.id);
           setIsFavorite(isFav);
-        } catch (error) {
-          console.error('Error verificando favorito:', error);
+        } catch {
+          // Error verificando favorito
         }
       }
     };
@@ -66,28 +66,16 @@ function ProductCard({ product, distance }) {
         await favoriteAPI.addFavorite(product.id);
         setIsFavorite(true);
       }
-    } catch (error) {
-      console.error('Error al manejar favorito:', error);
-      
-      // Manejar casos específicos  
-      if (error.response?.status === 400) {
-        const errorMsg = error.response?.data?.message || '';
-        
-        if (errorMsg.includes('ya está en favoritos') || errorMsg.includes('already')) {
-          // El producto ya está en favoritos, actualizar estado local
-          setIsFavorite(true);
-          return;
-        }
-      }
-      
-      setModalData({
-        isOpen: true,
-        type: 'error',
-        title: 'Error',
-        message: 'Error al actualizar favoritos. Inténtalo de nuevo.',
-        confirmText: 'Entendido'
-      });
-    } finally {
+      } catch {
+        // Error al manejar favorito
+        setModalData({
+          isOpen: true,
+          type: 'error',
+          title: 'Error',
+          message: 'Error al actualizar favoritos. Inténtalo de nuevo.',
+          confirmText: 'Entendido'
+        });
+      } finally {
       setFavoriteLoading(false);
     }
   };
@@ -219,7 +207,7 @@ function ProductosPage() {
       setSelectedCategory(categoryIdFromUrl);
     } else if (categoryFromUrl) {
       // Buscar en categorías locales primero, luego en backend cuando estén cargadas
-      const localCategory = categoriesData.find(cat => cat.value === categoryFromUrl);
+  const localCategory = backendCategories.find(cat => cat.value === categoryFromUrl);
       if (localCategory) {
         setSelectedCategory(localCategory.label);
       } else {
@@ -242,7 +230,7 @@ function ProductosPage() {
         setSelectedSubcategory(subcategoryFromUrl);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, backendCategories]);
 
   // Mapear filtros de URL a categorías del backend cuando se carguen
   useEffect(() => {
@@ -289,12 +277,9 @@ function ProductosPage() {
         setBackendCategories(categoriesData);
         
         // Debug: Ver estructura de los datos
-        console.log('Productos cargados:', productsData.slice(0, 2)); // Solo 2 para ver estructura
-        console.log('Categorías cargadas:', categoriesData);
-        console.log('Ejemplo de categoryId en productos:', productsData.map(p => ({ id: p.id, title: p.title, categoryId: p.categoryId })).slice(0, 3));
         
-      } catch (error) {
-        console.error('Error al cargar datos:', error);
+      } catch {
+        // Error al cargar datos
       } finally {
         setLoading(false);
       }
@@ -304,7 +289,7 @@ function ProductosPage() {
   }, []);
 
   const priceRanges = ['Todos', '0-100', '100-500', '500-1000', '1000+'];
-  const locations = ['Todos', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja'];
+  // const locations = ['Todos', 'Quito', 'Guayaquil', 'Cuenca', 'Ambato', 'Manta', 'Loja'];
 
 
 
@@ -365,24 +350,6 @@ function ProductosPage() {
     setSelectedSubcategory(subcategoryId);
   };
 
-  // Helper para obtener información de categoría por ID (por ahora no usado)
-  // const getCategoryInfo = (categoryId) => {
-  //   if (!categoryId || !backendCategories.length) return null;
-    
-  //   // Buscar en categorías principales
-  //   const mainCategory = backendCategories.find(cat => String(cat.id) === String(categoryId));
-  //   if (mainCategory) return mainCategory;
-    
-  //   // Buscar en subcategorías
-  //   for (const category of backendCategories) {
-  //     if (category.subcategories) {
-  //       const subcategory = category.subcategories.find(sub => String(sub.id) === String(categoryId));
-  //       if (subcategory) return { ...subcategory, parentCategory: category };
-  //     }
-  //   }
-    
-  //   return null;
-  // };
 
 
 

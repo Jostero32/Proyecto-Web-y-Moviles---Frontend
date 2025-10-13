@@ -132,17 +132,16 @@ export const authAPI = {
     try {
       import('./websocket').then(({ default: webSocketService }) => {
         if (webSocketService.isConnected()) {
-          console.log('🚪 Notificando logout al WebSocket...');
+          // Notificando logout al WebSocket...
           webSocketService.send('userLogout', { reason: 'manual_logout' });
-          
           // Dar tiempo para que se envíe el mensaje antes de desconectar
           setTimeout(() => {
             webSocketService.disconnect();
           }, 500);
         }
       });
-    } catch (error) {
-      console.warn('No se pudo notificar logout al WebSocket:', error);
+    } catch {
+      // No se pudo notificar logout al WebSocket
     }
     
     cookieUtils.removeAuthToken();
@@ -245,8 +244,8 @@ export const userAPI = {
         cookieUtils.setUserData(currentUser);
         return currentUser;
       }
-    } catch (error) {
-      console.error('Error refreshing user data:', error);
+    } catch {
+      // Error refreshing user data
     }
     return null;
   }
@@ -303,18 +302,18 @@ export const productAPI = {
       try {
         const response = await api.post('/products', formData);
         return response.data;
-      } catch (error) {
-        console.error('Error al crear producto con fotos:', error);
-        throw error;
+      } catch {
+        // Error al crear producto con fotos
+        throw new Error('Error al crear producto con fotos');
       }
     } else {
       // Sin fotos, enviar como JSON puro
       try {
         const response = await api.post('/products', productPayload);
         return response.data;
-      } catch (error) {
-        console.error('Error al crear producto sin fotos:', error);
-        throw error;
+      } catch {
+        // Error al crear producto sin fotos
+        throw new Error('Error al crear producto sin fotos');
       }
     }
   },
@@ -434,15 +433,7 @@ export const messageAPI = {
       conversationId: parseInt(conversationId), // Asegurar que sea número
       content: content.toString() // Asegurar que sea string
     };
-    
-    console.log('Enviando mensaje con datos:', JSON.stringify(payload, null, 2));
-    console.log('Tipos de datos:', {
-      conversationId: typeof payload.conversationId,
-      content: typeof payload.content,
-      conversationIdValue: payload.conversationId,
-      contentValue: payload.content
-    });
-    
+    // Enviando mensaje con datos y tipos de datos
     const response = await api.post('/messages', payload);
     return response.data;
   },
@@ -467,18 +458,17 @@ export const favoriteAPI = {
     
     // Usar cache si está disponible y es reciente
     if (useCache && favoritesCache && (now - cacheTimestamp < CACHE_DURATION)) {
-      console.log('Using cached favorites');
+  // Using cached favorites
       return favoritesCache;
     }
     
-    console.log('Making fresh request to GET /favorites');
+  // Making fresh request to GET /favorites
     const response = await api.get('/favorites');
-    console.log('getUserFavorites response:', response.data);
+  // getUserFavorites response
     
     // Verificar estructura de respuesta
     if (Array.isArray(response.data) && response.data.length > 0) {
-      console.log('Sample favorite structure:', response.data[0]);
-      console.log('Available keys in favorite:', Object.keys(response.data[0]));
+  // Sample favorite structure and available keys in favorite
     }
     
     // Actualizar cache
@@ -496,7 +486,7 @@ export const favoriteAPI = {
 
   // Agregar producto a favoritos
   addFavorite: async (productId) => {
-    console.log('API addFavorite called with productId:', productId, 'type:', typeof productId);
+  // API addFavorite called with productId and type
     
     // Asegurar que productId es un número
     const numericProductId = parseInt(productId);
@@ -505,10 +495,10 @@ export const favoriteAPI = {
     }
     
     const payload = { productId: numericProductId };
-    console.log('Sending payload to POST /favorites:', payload);
+  // Sending payload to POST /favorites
     
     const response = await api.post('/favorites', payload);
-    console.log('addFavorite response:', response.data);
+  // addFavorite response
     
     // Limpiar cache para forzar refetch
     favoriteAPI.clearCache();
@@ -518,7 +508,7 @@ export const favoriteAPI = {
 
   // Eliminar producto de favoritos
   removeFavorite: async (productId) => {
-    console.log('API removeFavorite called with productId:', productId);
+  // API removeFavorite called with productId
     
     const numericProductId = parseInt(productId);
     if (isNaN(numericProductId)) {
@@ -526,7 +516,7 @@ export const favoriteAPI = {
     }
     
     const response = await api.delete(`/favorites/${numericProductId}`);
-    console.log('removeFavorite response:', response.data);
+  // removeFavorite response
     
     // Limpiar cache para forzar refetch
     favoriteAPI.clearCache();
@@ -537,18 +527,17 @@ export const favoriteAPI = {
   // Verificar si un producto está en favoritos
   isFavorite: async (productId) => {
     try {
-      console.log('Checking if product is favorite:', productId);
+  // Checking if product is favorite
       const favorites = await favoriteAPI.getUserFavorites();
-      console.log('User favorites raw data:', favorites);
+  // User favorites raw data
       
       // Verificar estructura de datos
       if (favorites.length > 0) {
-        console.log('First favorite structure:', favorites[0]);
-        console.log('Available keys:', Object.keys(favorites[0]));
+  // First favorite structure and available keys
       }
       
       const numericProductId = parseInt(productId);
-      console.log('Looking for productId:', numericProductId, 'type:', typeof numericProductId);
+  // Looking for productId and type
       
       // Intentar diferentes formas de comparar basado en la estructura del backend
       const isFav = favorites.some(favorite => {
@@ -556,11 +545,11 @@ export const favoriteAPI = {
         const backendProductId = favorite.productId || favorite.Product?.id;
         const backendProductIdNum = parseInt(backendProductId);
         
-        console.log('Comparing backend productId:', backendProductId, 'parsed:', backendProductIdNum, 'vs target:', numericProductId);
+  // Comparing backend productId and target
         return backendProductIdNum === numericProductId;
       });
       
-      console.log(`Product ${numericProductId} is favorite:`, isFav);
+  // Product is favorite: isFav
       return isFav;
     } catch (error) {
       console.error('Error verificando favorito:', error);

@@ -102,7 +102,6 @@ function ChatPage() {
   // Solicitar usuarios online cuando se conecta el WebSocket
   useEffect(() => {
     if (isConnected) {
-      console.log('🔍 WebSocket conectado, solicitando usuarios online...');
       setTimeout(() => {
         requestOnlineUsers();
       }, 1000);
@@ -125,7 +124,6 @@ function ChatPage() {
         const lastUpdate = lastActivityUpdate.current.get(userId);
         
         if (!lastUpdate || (now - lastUpdate > 30000)) {
-          console.log('🟢 Marcando usuario como online por actividad:', userId);
           setUserOnline(userId, 'online');
           lastActivityUpdate.current.set(userId, now);
         }
@@ -157,7 +155,6 @@ function ChatPage() {
           const lastUpdate = lastActivityUpdate.current.get(`typing_${userId}`);
           
           if (!lastUpdate || (now - lastUpdate > 10000)) {
-            console.log('✍️ Usuario escribiendo, marcando como online:', userId);
             setUserOnline(userId, 'online');
             lastActivityUpdate.current.set(`typing_${userId}`, now);
           }
@@ -200,7 +197,6 @@ function ChatPage() {
           const diffMinutes = Math.floor((now - lastMessageTime) / (1000 * 60));
           
           if (diffMinutes < 10) {
-            console.log(`👤 Marcando usuario ${otherUserId} como online por actividad reciente (${diffMinutes}m ago)`);
             setUserOnline(otherUserId, 'online');
           }
         }
@@ -223,11 +219,10 @@ function ChatPage() {
         });
       } else {
         // Si no hay WebSocket, usar HTTP (si tienes una API para esto)
-        console.log('Marcando mensaje como leído (HTTP):', messageId);
         // Aquí puedes agregar una llamada HTTP si la tienes
       }
-    } catch (error) {
-      console.error('Error marcando mensaje como leído:', error);
+    } catch{
+  // Error marcando mensaje como leído
     }
   }, [isConnected]);
 
@@ -245,11 +240,9 @@ function ChatPage() {
   useEffect(() => {
     const initWebSocket = async () => {
       try {
-        console.log('🔌 Intentando conectar WebSocket...');
         await connectWS();
-        console.log('✅ WebSocket conectado exitosamente');
-      } catch (error) {
-        console.warn('⚠️ WebSocket no disponible, continuando sin tiempo real:', error.message);
+      } catch {
+  // WebSocket no disponible, continuando sin tiempo real
         // El chat sigue funcionando sin WebSocket, solo sin tiempo real
       }
     };
@@ -258,7 +251,6 @@ function ChatPage() {
 
     // Limpiar al desmontar
     return () => {
-      console.log('🔌 Desconectando WebSocket...');
       disconnectWS();
     };
   }, [connectWS, disconnectWS]);
@@ -272,8 +264,7 @@ function ChatPage() {
     }, 100);
   }, [messages]);
 
-  // Sistema eliminado - Solo WebSocket para mensajes en tiempo real
-  // useEffect eliminado - No más polling HTTP para mensajes
+  // ...existing code...
 
   // Actualizar estado online de conversaciones cuando cambie la lista de usuarios online
   useEffect(() => {
@@ -291,51 +282,38 @@ function ChatPage() {
     try {
       setSelectedChat(conversation);
       setMessagesLoading(true);
-      
       // Cargar mensajes de la conversación desde el backend
       const backendMessages = await conversationAPI.getConversationMessages(conversation.id);
-      
       // Mapear mensajes del backend al formato UI
       const userData = authAPI.getUserData();
       const currentUserIdForMapping = userData?.id || currentUserId;
-      console.log('Mapeando mensajes con currentUserId:', currentUserIdForMapping);
-      console.log('Mensajes del backend:', backendMessages);
-      
       const mappedMessages = backendMessages.map(msg => {
-        console.log('Mapeando mensaje:', msg);
         const isOwn = msg.senderId === currentUserIdForMapping;
-        
-        // Determinar estado del mensaje
-        let status = 'sent'; // Por defecto enviado
+        let status = 'sent';
         if (msg.read) {
-          status = 'read'; // Visto
+          status = 'read';
         } else if (msg.delivered) {
-          status = 'delivered'; // Entregado
+          status = 'delivered';
         }
-        
         return {
           id: msg.id,
           text: msg.content,
           sender: isOwn ? 'me' : 'vendor',
           timestamp: formatMessageTimestamp(msg.sentAt || msg.createdAt),
-          status: status, // Estado del mensaje
-          // Datos originales
+          status: status,
           originalData: msg
         };
       });
-      
       setMessagesFromAPI(mappedMessages);
+      // Resetear contador de no leídos al abrir el chat
+      setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, unread: 0 } : c));
       navigate(`/chat/${conversation.id}`);
-      
-      // Scroll al final después de cargar mensajes
       setTimeout(() => {
         if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       }, 100);
-      
-    } catch (error) {
-      console.error('Error al cargar mensajes:', error);
+    } catch {
       setMessagesFromAPI([]);
     } finally {
       setMessagesLoading(false);
@@ -349,73 +327,44 @@ function ChatPage() {
       
       // Obtener el usuario actual
       const userData = authAPI.getUserData();
-      console.log('Usuario actual:', userData);
       if (userData) {
         setCurrentUserId(userData.id);
-        console.log('Current user ID establecido:', userData.id);
       } else {
-        console.error('No se pudo obtener datos del usuario');
+  // No se pudo obtener datos del usuario
       }
 
       // Cargar conversaciones del backend
       const backendConversations = await conversationAPI.getMyConversations();
-      console.log('Conversaciones del backend:', backendConversations);
       
       // Mapear conversaciones del backend al formato UI
       const mappedConversations = await Promise.all(
         backendConversations.map(async (conversation) => {
-          console.log('Procesando conversación completa:', JSON.stringify(conversation, null, 2));
-          
           // Determinar quién es el otro usuario (buyer o seller)
           const isCurrentUserBuyer = conversation.buyerId === userData?.id;
           const otherUserId = isCurrentUserBuyer ? conversation.sellerId : conversation.buyerId;
-          
-          console.log('IDs para conversación:', {
-            conversationId: conversation.id,
-            currentUserId: userData?.id,
-            buyerId: conversation.buyerId,
-            sellerId: conversation.sellerId,
-            isCurrentUserBuyer,
-            otherUserId
-          });
-          
           // Obtener información del otro usuario
           let otherUser = null;
           if (otherUserId) {
             try {
-              console.log(`Intentando obtener usuario ${otherUserId} para conversación ${conversation.id}`);
               otherUser = await userAPI.getUserById(otherUserId);
-              console.log('Usuario obtenido completo:', JSON.stringify(otherUser, null, 2));
-              console.log('Propiedades del usuario:', {
-                id: otherUser?.id,
-                name: otherUser?.name,
-                lastname: otherUser?.lastname,
-                email: otherUser?.email,
-                avatarUrl: otherUser?.avatarUrl
-              });
-            } catch (error) {
-              console.error(`Error obteniendo usuario ${otherUserId}:`, error);
-              console.error('Detalles del error:', error.response?.data);
-            }
-          } else {
-            console.warn('otherUserId es null o undefined para la conversación', conversation.id);
+            } catch { /* Error obteniendo usuario */ }
           }
-
           // Obtener información del producto
           let product = null;
           try {
             product = await productAPI.getProductById(conversation.productId);
-          } catch (error) {
-            console.warn(`No se pudo obtener producto ${conversation.productId}:`, error);
-          }
-
+          } catch { /* No se pudo obtener producto */ }
           // Obtener último mensaje directamente de la conversación
           let lastMessage = null;
           let lastMessageText = 'Sin mensajes';
-          
+          let unreadCount = 0;
           if (conversation.Messages && conversation.Messages.length > 0) {
             lastMessage = conversation.Messages[conversation.Messages.length - 1];
             lastMessageText = lastMessage.content;
+            // Calcular mensajes no leídos para el usuario actual
+            unreadCount = conversation.Messages.filter(
+              m => m.senderId !== userData?.id && !m.read
+            ).length;
           } else {
             // Si no hay mensajes en la conversación, intentar obtenerlos del API
             try {
@@ -423,65 +372,43 @@ function ChatPage() {
               if (messages && messages.length > 0) {
                 lastMessage = messages[messages.length - 1];
                 lastMessageText = lastMessage.content;
+                unreadCount = messages.filter(
+                  m => m.senderId !== userData?.id && !m.read
+                ).length;
               }
-            } catch {
-              console.warn('No se pudieron obtener mensajes para conversación', conversation.id);
-            }
+            } catch { /* No se pudieron obtener mensajes para conversación */ }
           }
-
           // Construcción del nombre del usuario y avatar
           let displayName = 'Usuario Desconocido';
           let avatarLetter = 'U';
           let avatarImage = null;
-          
           if (otherUser) {
-            // El backend usa 'name' y 'lastname', no 'firstName' y 'lastName'
             const firstName = otherUser.name || '';
             const lastName = otherUser.lastname || '';
-            
             if (firstName || lastName) {
               displayName = `${firstName} ${lastName}`.trim();
               avatarLetter = (firstName[0] || lastName[0] || 'U').toUpperCase();
             } else if (otherUser.email) {
-              // Si no hay nombre, usar el email completo, no solo la parte antes del @
               displayName = otherUser.email;
               avatarLetter = otherUser.email[0].toUpperCase();
             }
-            
-            // El backend usa 'avatarUrl', no 'profilePicture'
             if (otherUser.avatarUrl) {
               avatarImage = otherUser.avatarUrl.startsWith('http') 
                 ? otherUser.avatarUrl 
                 : `${API_BASE_URL}${otherUser.avatarUrl}`;
             }
           }
-          
-          console.log('Nombre construido:', JSON.stringify({ 
-            displayName, 
-            avatarLetter, 
-            avatarImage,
-            userFields: {
-              name: otherUser?.name,
-              lastname: otherUser?.lastname,
-              email: otherUser?.email,
-              avatarUrl: otherUser?.avatarUrl
-            }
-          }, null, 2));
-
-          // Determinar estado online del otro usuario
-          // Solo leer el estado, no modificarlo aquí para evitar bucles
-          const isOnline = false; // Se actualizará dinámicamente en el render
+          const isOnline = false;
           const userStatus = { status: 'offline', lastSeen: null };
-
           return {
             id: conversation.id,
             vendorName: displayName,
             vendorAvatar: avatarLetter,
-            vendorImage: avatarImage, // Imagen real del usuario
+            vendorImage: avatarImage,
             verified: otherUser?.isVerified || false,
             online: isOnline,
             lastSeen: userStatus.lastSeen,
-            otherUserId: otherUserId, // Guardar ID del otro usuario para referencia
+            otherUserId: otherUserId,
             product: product ? {
               id: product.id,
               title: product.title,
@@ -495,8 +422,7 @@ function ChatPage() {
             },
             lastMessage: lastMessageText,
             lastMessageTime: lastMessage ? formatMessageTime(lastMessage.createdAt || lastMessage.sentAt) : '',
-            unread: 0, // Por ahora sin lógica de no leídos
-            // Datos originales para referencia
+            unread: unreadCount,
             originalData: conversation,
             isCurrentUserBuyer
           };
@@ -512,8 +438,8 @@ function ChatPage() {
           await handleSelectChat(targetConversation);
         }
       }
-    } catch (error) {
-      console.error('Error al cargar conversaciones:', error);
+    } catch {
+      // Error al cargar conversaciones
       setConversations([]);
     } finally {
       setLoading(false);
@@ -523,14 +449,7 @@ function ChatPage() {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     const canSend = message.trim() && selectedChat && !sendingMessage;
-    console.log('Intentando enviar mensaje:', {
-      message: message.trim(),
-      messageLength: message.trim().length,
-      selectedChat: selectedChat?.id,
-      sendingMessage,
-      currentUserId,
-      canSend
-    });
+    // ...existing code...
     
     if (canSend) {
       try {
@@ -538,13 +457,13 @@ function ChatPage() {
         
         // Intentar enviar por WebSocket si está conectado
         if (isConnected) {
-          console.log('Enviando mensaje por WebSocket...');
+          // ...existing code...
           import('../services/websocket').then(({ websocketService }) => {
             const success = websocketService.sendMessage(selectedChat.id, message.trim());
             if (success) {
-              console.log('✅ Mensaje enviado por WebSocket');
+              // ...existing code...
             } else {
-              console.log('⚠️ WebSocket no pudo enviar, intentando HTTP...');
+              // ...existing code...
               // Si WebSocket falla, enviar por HTTP como fallback
               sendViaHTTP();
             }
@@ -568,9 +487,9 @@ function ChatPage() {
         }
 
         async function sendViaHTTP() {
-          console.log('Enviando mensaje por HTTP...');
-          const sentMessage = await messageAPI.sendMessage(selectedChat.id, message.trim());
-          console.log('Mensaje enviado por HTTP:', sentMessage);
+          // ...existing code...
+          await messageAPI.sendMessage(selectedChat.id, message.trim());
+          // ...existing code...
           
           // Solo limpiar el input, el WebSocket se encargará de mostrar el mensaje
           setMessage('');
@@ -584,20 +503,17 @@ function ChatPage() {
         }, 100);
         
       } catch (error) {
-        console.error('Error al enviar mensaje:', error);
-        console.error('Detalles del error completo:', JSON.stringify(error.response?.data, null, 2));
-        console.error('Status del error:', error.response?.status);
-        console.error('Headers del error:', error.response?.headers);
+  // ...existing code...
         
         const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
         
         // Verificar si es el error específico de notificaciones que podemos ignorar
         if (errorMessage && errorMessage.includes('Notification.title cannot be null')) {
-          console.warn('Error de notificación REST detectado - Probablemente el mensaje sí se creó');
+          // ...existing code...
           
           // Recargar mensajes desde API para verificar si el mensaje se creó
           try {
-            console.log('Recargando mensajes para verificar si se creó...');
+            // ...existing code...
             const backendMessages = await conversationAPI.getConversationMessages(selectedChat.id);
             const userData = authAPI.getUserData();
             const currentUserIdForMapping = userData?.id || currentUserId;
@@ -620,10 +536,10 @@ function ChatPage() {
               }
             }, 100);
             
-            console.log('✅ Mensaje enviado correctamente (error de notificación ignorado)');
+            // ...existing code...
             
-          } catch (reloadError) {
-            console.error('Error al recargar mensajes:', reloadError);
+          } catch {
+            // ...existing code...
             alert('Error: No se pudo verificar si el mensaje se envió');
           }
           
@@ -635,11 +551,7 @@ function ChatPage() {
         setSendingMessage(false);
       }
     } else {
-      console.log('No se puede enviar mensaje:', {
-        hasMessage: !!message.trim(),
-        hasSelectedChat: !!selectedChat,
-        notSending: !sendingMessage
-      });
+      // ...existing code...
     }
   };
 

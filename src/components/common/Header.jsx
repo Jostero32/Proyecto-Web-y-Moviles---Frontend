@@ -61,9 +61,8 @@ function Header() {
       const initWebSocket = async () => {
         try {
           await connectWS();
-         
         } catch {
-          console.log('⚠️ No se pudo conectar WebSocket en Header, las notificaciones pueden no ser en tiempo real');
+          // No se pudo conectar WebSocket en Header, las notificaciones pueden no ser en tiempo real
         }
       };
 
@@ -139,8 +138,8 @@ function Header() {
           const payload = JSON.parse(atob(token.split('.')[1]));
           return payload.roles?.[0] || 'Usuario';
         }
-      } catch (error) {
-        console.log('Error decodificando token para rol:', error);
+      } catch {
+        // Error decodificando token para rol
       }
     }
     
@@ -167,8 +166,8 @@ function Header() {
             return payload.email.split('@')[0]; // Usar parte antes del @
           }
         }
-      } catch (error) {
-        console.log('Error decodificando token para nombre:', error);
+      } catch {
+        // Error decodificando token para nombre
       }
     }
     

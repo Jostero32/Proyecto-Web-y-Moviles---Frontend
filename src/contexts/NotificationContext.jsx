@@ -25,14 +25,13 @@ export const NotificationProvider = ({ children }) => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📥 Notificaciones cargadas desde API (Context):', data);
         setNotifications(data || []);
       } else {
-        console.error('Error cargando notificaciones:', response.status);
+  // Error cargando notificaciones
         setNotifications([]);
       }
-    } catch (error) {
-      console.error('Error cargando notificaciones:', error);
+    } catch {
+      // Error cargando notificaciones
       setNotifications([]);
     } finally {
       setIsLoading(false);
@@ -57,7 +56,6 @@ export const NotificationProvider = ({ children }) => {
         ...notification
       };
       
-      console.log('➕ Agregando notificación (Context):', mappedNotification);
       return [mappedNotification, ...prev];
     });
   }, []);
@@ -94,8 +92,8 @@ export const NotificationProvider = ({ children }) => {
           detail: { type: 'markAsRead', notificationId } 
         }));
       }
-    } catch (error) {
-      console.error('Error marcando notificación como leída:', error);
+    } catch {
+      // Error marcando notificación como leída
     }
   }, []);
 
@@ -120,9 +118,8 @@ export const NotificationProvider = ({ children }) => {
           })
         )
       );
-    } catch (error) {
-      console.error('Error marcando todas las notificaciones como leídas:', error);
-      // Revertir si hay error
+    } catch {
+      // Error marcando todas las notificaciones como leídas
       loadNotifications();
     }
   }, [notifications, loadNotifications]);
@@ -141,28 +138,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Configurar WebSocket listeners cuando el contexto se inicializa - DESHABILITADO
   useEffect(() => {
-    // FUNCIONES COMENTADAS - ahora se usa useNotifications.js
-    // const handleNewNotification = (payload) => {
-    //   console.log('🔔 Nueva notificación WebSocket (Context):', payload);
-    //   
-    //   // Usar las utilidades para mapear la notificación
-    //   const mappedNotification = mapWebSocketEventToNotification(payload);
-    //   
-    //   addNotification(mappedNotification);
-    // };
-
-    // // Manejar mensajes directos para convertirlos en notificaciones
-    // const handleDirectMessage = (payload) => {
-    //   // Solo crear notificación si el mensaje no es del usuario actual
-    //   if (payload.senderId !== webSocketService.currentUserId) {
-    //     console.log('💬 Creando notificación de mensaje nuevo (Context):', payload);
-    //     handleNewNotification({
-    //       type: 'new_message',
-    //       eventType: 'new_message',
-    //       ...payload
-    //     });
-    //   }
-    // };
+  // ...existing code...
 
     // Cargar notificaciones iniciales solo si hay usuario autenticado
     const checkAuthAndLoad = () => {
@@ -170,20 +146,14 @@ export const NotificationProvider = ({ children }) => {
       if (token) {
         loadNotifications();
         
-        // Configurar listeners de WebSocket - DESHABILITADO (ahora se usa useNotifications.js)
-        // webSocketService.on('newNotification', handleNewNotification);
-        // webSocketService.on('newMessage', handleNewNotification);
-        // webSocketService.on('message', handleDirectMessage);
+  // ...existing code...
       }
     };
 
     checkAuthAndLoad();
 
     return () => {
-      // Limpiar listeners - DESHABILITADO (ahora se usa useNotifications.js)
-      // webSocketService.off('newNotification', handleNewNotification);
-      // webSocketService.off('newMessage', handleNewNotification);
-      // webSocketService.off('message', handleDirectMessage);
+  // ...existing code...
     };
   }, [addNotification, loadNotifications]);
 

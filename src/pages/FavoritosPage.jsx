@@ -10,7 +10,6 @@ function FavoritosPage() {
   const [favoritos, setFavoritos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [loadingImages, setLoadingImages] = useState(false);
   const [modalData, setModalData] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
   const navigate = useNavigate();
 
@@ -20,36 +19,24 @@ function FavoritosPage() {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching user favorites...');
       const favoritesData = await favoriteAPI.getUserFavorites();
-      console.log('Raw favorites data:', favoritesData);
-      
-      // Cargar imágenes después
-      setLoadingImages(true);
       
       // Mapear los datos del backend al formato esperado por el componente
       const mappedFavoritos = await Promise.all(favoritesData.map(async (favorite) => {
-        console.log('Processing favorite:', favorite);
         
         const product = favorite.Product || {};
         const seller = product.User || {};
         
-        console.log('Product data:', product);
-        console.log('Product photos from /favorites:', product.ProductPhotos);
         
         // Obtener las fotos del producto desde /products/:id ya que /favorites no las incluye
         let imageUrl = null;
         try {
-          console.log('Fetching product details for ID:', product.id);
           const fullProductData = await productAPI.getProductById(product.id);
-          console.log('Full product data from /products:', fullProductData);
-          console.log('Product photos from /products:', fullProductData.ProductPhotos);
           
           // Obtener la primera imagen del producto
           if (fullProductData.ProductPhotos && Array.isArray(fullProductData.ProductPhotos) && fullProductData.ProductPhotos.length > 0) {
             const sortedPhotos = fullProductData.ProductPhotos.sort((a, b) => (a.position || 0) - (b.position || 0));
             const firstPhoto = sortedPhotos[0];
-            console.log('First photo found:', firstPhoto);
             
             // Try both 'photo' and 'url' fields
             const photoFileName = firstPhoto.photo || firstPhoto.url;
@@ -57,11 +44,10 @@ function FavoritosPage() {
               imageUrl = photoFileName.startsWith('http') 
                 ? photoFileName 
                 : `${API_BASE_URL}${photoFileName.startsWith('/') ? '' : '/'}${photoFileName}`;
-              console.log('Generated image URL:', imageUrl);
             }
           }
-        } catch (error) {
-          console.error('Error fetching product details for ID:', product.id, error);
+        } catch {
+          // Error fetching product details for ID
         }
         
         const mappedProduct = {
@@ -79,13 +65,11 @@ function FavoritosPage() {
           isImageUrl: !!imageUrl
         };
         
-        console.log('Mapped product with image:', mappedProduct);
         return mappedProduct;
       }));
       
-      console.log('Mapped favorites:', mappedFavoritos);
       setFavoritos(mappedFavoritos);
-      setLoadingImages(false);
+     
       
     } catch (error) {
       console.error('Error loading favorites:', error);
@@ -113,12 +97,10 @@ function FavoritosPage() {
       message: `¿Estás seguro de que quieres quitar "${titulo}" de tus favoritos?`,
       onConfirm: async () => {
         try {
-          console.log('Removing favorite:', productId);
           await favoriteAPI.removeFavorite(productId);
           
           // Actualizar estado local
           setFavoritos(prev => prev.filter(fav => fav.id !== productId));
-          console.log('Favorite removed successfully');
           
           // Mostrar mensaje de éxito
           setModalData({
@@ -129,8 +111,8 @@ function FavoritosPage() {
             confirmText: 'Entendido'
           });
           
-        } catch (error) {
-          console.error('Error removing favorite:', error);
+        } catch {
+          // Error removing favorite
           setModalData({
             isOpen: true,
             type: 'error',
@@ -159,7 +141,6 @@ function FavoritosPage() {
           await Promise.all(deletePromises);
           
           setFavoritos([]);
-          console.log('All favorites removed successfully');
           
           // Mostrar mensaje de éxito
           setModalData({
@@ -170,8 +151,8 @@ function FavoritosPage() {
             confirmText: 'Entendido'
           });
           
-        } catch (error) {
-          console.error('Error removing all favorites:', error);
+        } catch {
+          // Error removing all favorites
           setModalData({
             isOpen: true,
             type: 'error',
@@ -258,7 +239,7 @@ function FavoritosPage() {
                       alt={producto.titulo}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        console.log('Image load error for:', producto.imagen);
+                       
                         e.target.style.display = 'none';
                         e.target.nextElementSibling.style.display = 'block';
                       }}

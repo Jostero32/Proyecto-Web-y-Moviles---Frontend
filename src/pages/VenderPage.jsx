@@ -47,7 +47,7 @@ function VenderPage() {
         const categories = await categoryAPI.getMain();
         setBackendCategories(categories);
       } catch (error) {
-        console.error('Error cargando datos:', error);
+  // Error cargando datos
         if (error.response?.status === 401) {
           navigate('/login');
         }
@@ -146,8 +146,8 @@ function VenderPage() {
         return;
       }
       
-      const result = await productAPI.createWithPhotos(productData, formData.images);
-      console.log('Producto creado:', result);
+  await productAPI.createWithPhotos(productData, formData.images);
+  // Producto creado: result
       
       showNotification('success', '¡Producto publicado exitosamente! 🎉');
       
@@ -168,7 +168,7 @@ function VenderPage() {
         navigate('/mis-productos');
       }, 2000);
     } catch (error) {
-      console.error('Error al crear producto:', error);
+  // Error al crear producto
       
       if (error.response?.status === 401) {
         navigate('/login');

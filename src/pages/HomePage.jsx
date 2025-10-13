@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import logo from '../assets/Logo de Shop&Buy.png';
-import usePageTitle from '../hooks/usePageTitle';
 import {
   FiSearch, FiTrendingUp, FiZap, FiMapPin, FiHeart,
   FiChevronRight, FiStar, FiUsers, FiPackage, FiClock, FiDollarSign
@@ -78,8 +77,8 @@ function ProductCard({ productId, image, title, price, location, isNew, verified
         try {
           const isFav = await favoriteAPI.isFavorite(productId);
           setIsFavorite(isFav);
-        } catch (error) {
-          console.error('Error verificando favorito:', error);
+        } catch {
+          // Error verificando favorito
         }
       }
     };
@@ -118,20 +117,8 @@ function ProductCard({ productId, image, title, price, location, isNew, verified
         await favoriteAPI.addFavorite(productId);
         setIsFavorite(true);
       }
-    } catch (error) {
-      console.error('Error al manejar favorito:', error);
-      
-      // Manejar casos específicos  
-      if (error.response?.status === 400) {
-        const errorMsg = error.response?.data?.message || '';
-        
-        if (errorMsg.includes('ya está en favoritos') || errorMsg.includes('already')) {
-          // El producto ya está en favoritos, actualizar estado local
-          setIsFavorite(true);
-          return;
-        }
-      }
-      
+    } catch {
+      // Error al manejar favorito
       setModalData({
         isOpen: true,
         type: 'error',
@@ -275,10 +262,9 @@ function HomePage() {
           .filter(Boolean);
         setCategories(mappedCategories);
 
-      } catch (error) {
-  console.error('Error al cargar datos:', error);
-  // Si hay error, dejar categorías vacías
-  setCategories([]);
+      } catch {
+        // Error al cargar datos
+        setCategories([]);
       } finally {
         setLoading(false);
       }

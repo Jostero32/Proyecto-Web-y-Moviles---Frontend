@@ -115,22 +115,14 @@ export const useWebSocketMessages = (conversationId) => {
 
   useEffect(() => {
     const handleNewMessage = (payload) => {
-      console.log('📨 Mensaje WebSocket recibido:', {
-        payload,
-        currentConversationId: conversationIdRef.current,
-        payloadConversationId: payload.conversationId,
-        currentUserId: webSocketService.currentUserId,
-        payloadSenderId: payload.senderId
-      });
       
       // Marcar al emisor como online (si no es el usuario actual)
       if (payload.senderId && payload.senderId !== webSocketService.currentUserId) {
-        console.log('👤 Marcando emisor como online por actividad:', payload.senderId);
         // Importar dinámicamente el hook de usuarios online
         import('../pages/ChatPage').then(() => {
           // El usuario que envía mensajes está claramente online
           // Esto se manejará a nivel de componente
-        }).catch(console.error);
+        }).catch(() => {});
       }
       
       // Solo procesar mensajes de la conversación actual (comparar como strings y números)
@@ -138,7 +130,6 @@ export const useWebSocketMessages = (conversationId) => {
       const currentConvId = conversationIdRef.current?.toString();
       
       if (payloadConvId === currentConvId) {
-        console.log('✅ Procesando mensaje para conversación actual');
         
         // Mapear el mensaje del WebSocket al formato de UI
         const mappedMessage = {
@@ -149,11 +140,8 @@ export const useWebSocketMessages = (conversationId) => {
           originalData: payload
         };
         
-        console.log('📝 Mensaje mapeado:', mappedMessage);
         addMessage(mappedMessage);
-      } else {
-        console.log('🚫 Mensaje ignorado - conversación diferente');
-      }
+  }
     };
 
     const handleUserTyping = (payload) => {
@@ -174,7 +162,6 @@ export const useWebSocketMessages = (conversationId) => {
     };
 
     const handleMessageSent = (messageData) => {
-      console.log('✅ Mensaje confirmado por WebSocket:', messageData);
       // Actualizar mensaje temporal con datos reales del servidor
       setMessages(prevMessages =>
         prevMessages.map(msg =>
@@ -191,7 +178,6 @@ export const useWebSocketMessages = (conversationId) => {
     };
 
     const handleMessageReadUpdate = (data) => {
-      console.log('👁️ Actualizando estado de lectura:', data);
       setMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.id === data.messageId ? {
@@ -211,10 +197,9 @@ export const useWebSocketMessages = (conversationId) => {
 
     // Unirse a la conversación si hay una seleccionada
     if (conversationId) {
-      console.log('🏠 Uniéndose a conversación WebSocket:', conversationId);
       const joined = webSocketService.joinConversation(conversationId);
       if (!joined) {
-        console.warn('⚠️ No se pudo unir a la conversación WebSocket (no conectado)');
+  // No se pudo unir a la conversación WebSocket (no conectado)
       }
     }
 
@@ -270,7 +255,6 @@ export const useWebSocketNotifications = () => {
 
   useEffect(() => {
     const handleNewNotification = (payload) => {
-      console.log('🔔 Nueva notificación WebSocket:', payload);
       addNotification(payload);
     };
 
@@ -312,7 +296,6 @@ export const useOnlineUsers = () => {
 
   // Método para marcar manualmente a un usuario como online (útil para sincronización)
   const setUserOnline = useCallback((userId, status = 'online') => {
-    console.log('👤 Marcando usuario como online manualmente:', { userId, status });
     setOnlineUsers(prev => new Set([...prev, userId.toString()]));
     setUserStatuses(prev => new Map(prev).set(userId.toString(), {
       status,
@@ -321,7 +304,6 @@ export const useOnlineUsers = () => {
   }, []);
 
   const setUserOffline = useCallback((userId) => {
-    console.log('👤 Marcando usuario como offline manualmente:', { userId });
     setOnlineUsers(prev => {
       const newSet = new Set(prev);
       newSet.delete(userId.toString());
@@ -340,7 +322,6 @@ export const useOnlineUsers = () => {
       const status = payload.status || 'online';
       const timestamp = payload.timestamp || new Date().toISOString();
       
-      console.log('🟢 Usuario conectado:', { userId, status });
       
       setOnlineUsers(prev => new Set([...prev, userId.toString()]));
       setUserStatuses(prev => new Map(prev).set(userId.toString(), {
@@ -354,7 +335,6 @@ export const useOnlineUsers = () => {
       const userId = payload.userId || payload.id || payload;
       const timestamp = payload.timestamp || new Date().toISOString();
       
-      console.log('🔴 Usuario desconectado:', { userId });
       
       setOnlineUsers(prev => {
         const newSet = new Set(prev);
@@ -370,7 +350,6 @@ export const useOnlineUsers = () => {
 
     const handleOnlineUsersList = (payload) => {
       const { users = [] } = payload;
-      console.log('👥 Lista de usuarios online recibida:', users);
       
       const onlineUserIds = new Set(users.map(user => 
         typeof user === 'object' ? user.userId?.toString() : user?.toString()
@@ -403,7 +382,6 @@ export const useOnlineUsers = () => {
     // Solicitar lista inicial de usuarios online cuando se conecta
     const handleConnected = () => {
       setTimeout(() => {
-        console.log('🔍 Solicitando lista inicial de usuarios online...');
         webSocketService.requestOnlineUsers();
         
         // También simulemos que el usuario actual está online
@@ -416,7 +394,6 @@ export const useOnlineUsers = () => {
 
     // Manejar datos iniciales del WebSocket
     const handleInitData = (data) => {
-      console.log('📊 Datos iniciales WebSocket:', data);
       // Si hay información de usuarios en los datos iniciales, procesarla
       if (data && data.conversations) {
         // Extraer IDs de usuarios de las conversaciones y marcarlos como potencialmente online
@@ -428,8 +405,9 @@ export const useOnlineUsers = () => {
             const diffMinutes = Math.floor((now - lastMessageTime) / (1000 * 60));
             
             // Si enviaron un mensaje en los últimos 30 minutos, considerarlo online
+            // Si enviaron un mensaje en los últimos 30 minutos, considerarlo online
             if (diffMinutes < 30) {
-              console.log('👤 Usuario posiblemente online por actividad reciente');
+              // ...existing code...
             }
           }
         });

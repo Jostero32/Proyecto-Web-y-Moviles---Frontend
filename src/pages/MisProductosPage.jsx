@@ -79,16 +79,13 @@ function MisProductosPage() {
   const reloadProducts = async () => {
     try {
       setLoading(true);
-      
       // Verificar autenticación
       if (!authAPI.isAuthenticated()) {
         navigate('/login');
         return;
       }
-
       // Obtener productos del usuario actualizados
       const response = await productAPI.getMyProducts();
-      
       // Mapear productos del backend al formato del frontend, mostrando categoría y subcategoría si existen
       const mappedProducts = response.map(product => {
         let categoria = 'Sin categoría';
@@ -116,10 +113,8 @@ function MisProductosPage() {
           fecha: product.createdAt || new Date().toISOString()
         };
       });
-
       setProductos(mappedProducts);
     } catch (error) {
-      console.error('Error recargando productos:', error);
       if (error.response?.status === 401) {
         navigate('/login');
       } else {
@@ -141,17 +136,12 @@ function MisProductosPage() {
     if (window.confirm(`¿Estás seguro de eliminar "${nombre}"?\n\nEsta acción no se puede deshacer.`)) {
       try {
         setLoading(true);
-        
         // Llamar a la API para eliminar
         await productAPI.deleteProduct(id);
-        
         // Actualizar el estado local
         setProductos(prev => prev.filter(p => p.id !== id));
         showNotification('success', `Producto "${nombre}" eliminado exitosamente`);
-        
       } catch (error) {
-        console.error('Error eliminando producto:', error);
-        
         if (error.response?.status === 401) {
           navigate('/login');
         } else if (error.response?.status === 403) {
@@ -172,12 +162,10 @@ function MisProductosPage() {
       // Obtener el producto completo del backend con todas sus fotos y datos
       const response = await productAPI.getMyProducts();
       const fullProduct = response.find(p => p.id === id);
-      
       if (fullProduct) {
         setEditModal({ show: true, product: fullProduct });
       }
-    } catch (error) {
-      console.error('Error obteniendo producto completo:', error);
+    } catch {
       showNotification('error', 'Error al cargar los datos del producto');
     } finally {
       setLoading(false);
@@ -187,7 +175,6 @@ function MisProductosPage() {
   const handleSaveEdit = async (updatedData) => {
     try {
       setEditLoading(true);
-      
       // Mapear campos del frontend al backend
       const productData = {
         title: updatedData.nombre,
@@ -200,17 +187,13 @@ function MisProductosPage() {
                updatedData.estado === 'Vendido' ? 'sold' : 
                updatedData.estado === 'Reservado' ? 'reserved' : 'inactive'
       };
-
       // Preparar todas las fotos para envío (existentes + nuevas)
       let allPhotos = null;
-      
       // Verificar si tenemos fotos existentes o nuevas
       const hasExistingPhotos = updatedData.existingPhotos && updatedData.existingPhotos.length > 0;
       const hasNewPhotos = updatedData.images && updatedData.images.length > 0;
-      
       if (hasExistingPhotos || hasNewPhotos) {
         allPhotos = [];
-        
         // Agregar fotos existentes (necesitamos re-enviarlas para que no se eliminen)
         if (hasExistingPhotos) {
           for (const existingPhoto of updatedData.existingPhotos) {
@@ -220,32 +203,24 @@ function MisProductosPage() {
               const blob = await response.blob();
               const file = new File([blob], `existing-${existingPhoto.id}.jpg`, { type: 'image/jpeg' });
               allPhotos.push(file);
-            } catch (error) {
-              console.error('Error al procesar foto existente:', error);
+            } catch {
               // Si no podemos obtener la foto existente, continúa sin ella
             }
           }
         }
-        
         // Agregar fotos nuevas
         if (hasNewPhotos) {
           allPhotos.push(...updatedData.images);
         }
       }
-
       // Llamar a la API para actualizar con TODAS las fotos
       await productAPI.updateProduct(editModal.product.id, productData, allPhotos);
-      
       // Cerrar modal y mostrar notificación
       setEditModal({ show: false, product: null });
       showNotification('success', 'Producto actualizado exitosamente');
-      
       // Recargar todos los productos para reflejar los cambios (especialmente las fotos actualizadas)
       await reloadProducts();
-      
     } catch (error) {
-      console.error('Error actualizando producto:', error);
-      
       if (error.response?.status === 401) {
         navigate('/login');
       } else if (error.response?.status === 403) {
@@ -536,28 +511,22 @@ function MisProductosPage() {
         try {
           // Cargar todas las categorías del backend (estructura plana)
           const allCategories = await categoryAPI.getAll();
-          
           // Separar categorías principales (parentCategoryId === null) de subcategorías
           const mainCategories = allCategories.filter(cat => cat.parentCategoryId === null);
           const subcategories = allCategories.filter(cat => cat.parentCategoryId !== null);
-          
           // Agrupar subcategorías por su categoría padre
           const categoriesWithSubs = mainCategories.map(mainCat => ({
             ...mainCat,
             subcategories: subcategories.filter(sub => sub.parentCategoryId === mainCat.id)
           }));
-          
           setBackendCategories(categoriesWithSubs); 
           setCategoriesLoaded(true);
-
           if (product && allCategories.length > 0) {
             // Determinar categoría y subcategoría basado en categoryId
             let selectedCategory = null;
             let selectedSubcategory = null;
-
             // Buscar la categoría del producto en todas las categorías (principales y subcategorías)
             const productCategory = allCategories.find(cat => String(cat.id) === String(product.categoryId));
-            
             if (productCategory) {
               if (productCategory.parentCategoryId) {
                 // Es una subcategoría - usar parentCategoryId como categoría principal
@@ -569,7 +538,6 @@ function MisProductosPage() {
                 selectedSubcategory = '';
               }
             }
-
             // Parsear locationCoords si viene como string
             let locationCoords = null;
             if (product.locationCoords) {
@@ -577,11 +545,10 @@ function MisProductosPage() {
                 locationCoords = typeof product.locationCoords === 'string' 
                   ? JSON.parse(product.locationCoords) 
                   : product.locationCoords;
-              } catch (e) {
-                console.error('Error parsing locationCoords:', e);
+              } catch {
+                // Si falla el parseo, dejar locationCoords como null
               }
             }
-
             // Actualizar formData con los datos del producto
             const newFormData = {
               nombre: product.title || '',
@@ -596,9 +563,7 @@ function MisProductosPage() {
               locationCoords: locationCoords,
               images: []
             };
-            
             setFormData(newFormData);
-
             // Cargar TODAS las fotos existentes directamente en el array de imágenes
             if (product.ProductPhotos && product.ProductPhotos.length > 0) {
               const existingImages = product.ProductPhotos.map((photo) => ({
@@ -607,13 +572,12 @@ function MisProductosPage() {
                 isExisting: true,
                 name: `existing-photo-${photo.id}.jpg` // Nombre para mostrar
               }));
-              
               // Cargar las fotos existentes directamente en el formData
               setFormData(prev => ({ ...prev, images: existingImages }));
             }
           }
-        } catch (error) {
-          console.error('Error cargando datos del modal:', error);
+        } catch {
+          // Si hay error cargando datos del modal, no hacer nada especial
         }
       };
 

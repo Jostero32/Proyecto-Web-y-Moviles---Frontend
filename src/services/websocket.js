@@ -31,198 +31,169 @@ class WebSocketService {
     if (this.isConnected || this.isReconnecting) {
       return Promise.resolve();
     }
-
-    try {
-      console.log('🔌 Conectando a WebSocket...', websocketConfig.url);
-      
-      const token = authAPI.getAuthToken();
-      const currentUser = authAPI.getUserData();
-      
-      if (!token || !currentUser) {
-        throw new Error('No hay usuario autenticado');
-      }
-
-      this.currentUserId = currentUser.id;
-      const wsUrl = `${websocketConfig.url}?token=${token}&userId=${currentUser.id}`;
-      this.ws = new WebSocket(wsUrl);
-
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          this.ws.close();
-          reject(new Error('Timeout de conexión WebSocket'));
-        }, websocketConfig.connectionTimeout);
-
-        this.ws.onopen = () => {
-          clearTimeout(timeout);
-          console.log('✅ WebSocket conectado');
-          this.isConnected = true;
-          this.reconnectAttempts = 0;
-          this.isReconnecting = false;
-          this.startHeartbeat();
-          this.processMessageQueue();
-          this.emit('connected');
-          resolve();
-        };
-
-        this.ws.onmessage = (event) => {
-          console.log('📨 Mensaje WebSocket recibido:', JSON.parse(event.data));
-          this.handleMessage(event);
-        };
-
-        this.ws.onclose = (event) => {
-          clearTimeout(timeout);
-          console.log('❌ WebSocket desconectado:', event.code);
-          this.isConnected = false;
-          this.stopHeartbeat();
-          this.emit('disconnected', event);
-          
-          if (!this.isReconnecting && event.code !== 1000) {
-            this.scheduleReconnect();
-          }
-        };
-
-        this.ws.onerror = (error) => {
-          clearTimeout(timeout);
-          console.log('❌ Error WebSocket:', error);
-          this.emit('error', error);
-          reject(error);
-        };
-      });
-    } catch (error) {
-      console.error('Error al conectar WebSocket:', error);
-      throw error;
+    // Conectando a WebSocket...
+    const token = authAPI.getAuthToken();
+    const currentUser = authAPI.getUserData();
+    if (!token || !currentUser) {
+      throw new Error('No hay usuario autenticado');
     }
+    this.currentUserId = currentUser.id;
+    const wsUrl = `${websocketConfig.url}?token=${token}&userId=${currentUser.id}`;
+    this.ws = new WebSocket(wsUrl);
+    return await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.ws.close();
+        reject(new Error('Timeout de conexión WebSocket'));
+      }, websocketConfig.connectionTimeout);
+      this.ws.onopen = () => {
+        clearTimeout(timeout);
+        // WebSocket conectado
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        this.isReconnecting = false;
+        this.startHeartbeat();
+        this.processMessageQueue();
+        this.emit('connected');
+        resolve();
+      };
+
+      this.ws.onmessage = (event) => {
+        // Mensaje WebSocket recibido
+        this.handleMessage(event);
+      };
+
+      this.ws.onclose = (event) => {
+        clearTimeout(timeout);
+        // WebSocket desconectado
+        this.isConnected = false;
+        this.stopHeartbeat();
+        this.emit('disconnected', event);
+        if (!this.isReconnecting && event.code !== 1000) {
+          this.scheduleReconnect();
+        }
+      };
+
+      this.ws.onerror = (error) => {
+        clearTimeout(timeout);
+        // Error WebSocket
+        this.emit('error', error);
+        reject(error);
+      };
+    });
   }
 
   handleMessage(event) {
     try {
       const message = JSON.parse(event.data);
-      console.log('🔄 Procesando mensaje WebSocket:', message);
-
+      // Procesando mensaje WebSocket
       // Manejar diferentes tipos de mensajes del backend
       switch (message.type) {
         case 'init:data':
-          console.log('🚀 Datos de inicialización recibidos:', message.data);
+          // Datos de inicialización recibidos
           this.emit('init', message.data);
           // Si hay conversaciones, procesarlas
           if (message.data && Array.isArray(message.data.conversations)) {
-            console.log('📫 Conversaciones iniciales:', message.data.conversations);
+            // Conversaciones iniciales
           }
           break;
         case 'chat:new':
-          console.log('📨 Nuevo mensaje de chat recibido:', message.data);
+          // Nuevo mensaje de chat recibido
           if (message.data && message.data.message) {
             this.emit('newMessage', message.data.message);
           }
           break;
         case 'chat:sent':
-          console.log('✅ Mensaje enviado confirmado:', message.data);
+          // Mensaje enviado confirmado
           if (message.data && message.data.message) {
             this.emit('messageSent', message.data.message);
           }
           break;
         case 'notification:new':
-          console.log('🔔 Nueva notificación recibida:', message.data);
+          // Nueva notificación recibida
           this.emit('newNotification', message.data);
           break;
         case 'chat:read:update':
-          console.log('👁️ Estado de lectura actualizado:', message.data);
+          // Estado de lectura actualizado
           this.emit('messageReadUpdate', message.data);
           break;
         case 'notification:read:confirm':
-          console.log('✅ Notificación marcada como leída:', message.data);
+          // Notificación marcada como leída
           this.emit('notificationReadConfirm', message.data);
           break;
         case 'user:online':
-          console.log('🟢 Usuario conectado:', message.data);
+          // Usuario conectado
           this.emit('userOnline', message.data);
           break;
         case 'user:offline':
-          console.log('🔴 Usuario desconectado:', message.data);
+          // Usuario desconectado
           this.emit('userOffline', message.data);
           break;
         case 'users:list':
-          console.log('👥 Lista de usuarios conectados:', message.data);
+          // Lista de usuarios conectados
           this.emit('onlineUsers', message.data);
           break;
         case 'error':
-          console.log('❌ Error del servidor:', message.message);
+          // Error del servidor
           this.emit('serverError', message);
           break;
         case 'newMessage':
         case 'message': // Mantener compatibilidad con tipos genéricos
-          console.log('📨 Emitiendo evento newMessage:', message.payload || message.data);
+          // Emitiendo evento newMessage
           this.emit('newMessage', message.payload || message.data);
           break;
         case 'messageUpdate':
-          console.log('📝 Emitiendo evento messageUpdate:', message.payload);
+          // Emitiendo evento messageUpdate
           this.emit('messageUpdate', message.payload);
           break;
         case 'userOnline':
-          console.log('🟢 Usuario online:', message.payload);
+          // Usuario online
           this.emit('userOnline', message.payload);
           break;
         case 'userOffline':
-          console.log('🔴 Usuario offline:', message.payload);
           this.emit('userOffline', message.payload);
           break;
         case 'userStatusUpdate':
-          console.log('👤 Estado de usuario actualizado:', message.payload);
           this.emit('userStatusUpdate', message.payload);
           break;
         case 'onlineUsers':
-          console.log('👥 Lista de usuarios online:', message.payload);
           this.emit('onlineUsers', message.payload);
           break;
         case 'typingStart':
-          console.log('✍️ Usuario comenzó a escribir:', message.payload);
           this.emit('typingStart', message.payload);
           break;
         case 'typingStop':
-          console.log('✋ Usuario dejó de escribir:', message.payload);
           this.emit('typingStop', message.payload);
           break;
         case 'pong':
-          console.log('💓 Pong recibido');
           break;
         default:
-          console.log('Tipo de mensaje WebSocket desconocido:', message.type, message.payload);
           // Emitir evento genérico para mensajes desconocidos
           this.emit('message', message);
       }
-    } catch (error) {
-      console.error('Error al procesar mensaje WebSocket:', error);
+    } catch {
+      // Error al procesar mensaje WebSocket
     }
   }
 
   send(message) {
     if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
-      console.log('📤 Enviando mensaje WebSocket:', message);
       this.ws.send(JSON.stringify(message));
       return true;
     } else {
-      console.log('WebSocket no está conectado, no se puede enviar:', message);
       this.messageQueue.push(message);
       return false;
     }
   }
 
   joinConversation(conversationId) {
-    console.log('🏠 Intentando unirse a conversación:', conversationId);
     const success = this.send({
       type: 'joinConversation',
       payload: { conversationId }
     });
-    
-    if (success) {
-      console.log('✅ Unido a conversación', conversationId);
-    }
-    
     return success;
   }
 
   leaveConversation(conversationId) {
-    console.log('🚪 Intentando salir de conversación:', conversationId);
     return this.send({
       type: 'leaveConversation',
       payload: { conversationId }
@@ -315,7 +286,6 @@ class WebSocketService {
   }
 
   disconnect() {
-    console.log('🔌 Desconectando WebSocket... Client disconnecting');
     this.isReconnecting = false;
     this.stopHeartbeat();
     
@@ -326,13 +296,11 @@ class WebSocketService {
     
     this.isConnected = false;
     this.messageQueue = [];
-    console.log('❌ WebSocket desconectado - conexión cerrada');
   }
 
   scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts || this.isReconnecting) {
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        console.log('❌ Máximo de reintentos alcanzado - WebSocket permanentemente desactivado');
         this.emit('maxReconnectAttemptsReached');
       }
       return;
@@ -342,18 +310,13 @@ class WebSocketService {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(websocketConfig.reconnectBackoff || 1.5, this.reconnectAttempts - 1);
 
-    console.log(`🔄 Reintentando conexión en ${delay}ms (intento ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
     setTimeout(async () => {
       try {
         await this.connect();
-      } catch (error) {
-        console.error('Error en reintento de conexión:', error);
+      } catch {
         this.isReconnecting = false;
-        
         // Si ya llegamos al máximo de intentos, no intentar más
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          console.log('❌ No se puede establecer conexión WebSocket - Continuando en modo HTTP');
           this.emit('maxReconnectAttemptsReached');
         } else {
           this.scheduleReconnect();
@@ -396,12 +359,9 @@ class WebSocketService {
 
   handleVisibilityChange(eventType) {
     if (!this.isConnected) return;
-
     if (document.hidden || eventType === 'blur') {
-      console.log('👁️ Usuario cambió de pestaña (away)');
       this.setUserStatus('away');
     } else if (!document.hidden || eventType === 'focus') {
-      console.log('👁️ Usuario regresó a la pestaña (online)');
       this.setUserStatus('online');
     }
   }
@@ -430,8 +390,8 @@ class WebSocketService {
       listeners.forEach(callback => {
         try {
           callback(data);
-        } catch (error) {
-          console.error(`Error en listener de evento ${event}:`, error);
+        } catch {
+          // Error en listener de evento
         }
       });
     }

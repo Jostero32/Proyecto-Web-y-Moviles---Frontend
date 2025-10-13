@@ -32,7 +32,7 @@ function CategoriasPage() {
           })
           .filter(Boolean);
         setCategories(mappedCategories);
-      } catch (error) {
+      } catch {
         setCategories([]);
       } finally {
         setLoading(false);

@@ -31,11 +31,10 @@ export const useNotifications = () => {
         timestamp: notification.createdAt
       })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-      setNotifications(mappedNotifications);
-      console.log('📥 Notificaciones cargadas desde API:', mappedNotifications);
+  setNotifications(mappedNotifications);
       
     } catch (err) {
-      console.error('Error cargando notificaciones:', err);
+      // Error cargando notificaciones
       setError(err.message);
       setNotifications([]);
     } finally {
@@ -79,7 +78,6 @@ export const useNotifications = () => {
         timestamp: newNotification.createdAt || new Date().toISOString()
       };
 
-      console.log('➕ Nueva notificación agregada:', mappedNotification);
       
       // Emitir evento para sincronizar con otras instancias del hook
       setTimeout(() => {
@@ -111,9 +109,8 @@ export const useNotifications = () => {
         detail: { type: 'markAsRead', notificationId } 
       }));
       
-      console.log('✅ Notificación marcada como leída:', notificationId);
     } catch (err) {
-      console.error('Error marcando notificación como leída:', err);
+      // Error marcando notificación como leída
       setError(err.message);
     }
   }, []);
@@ -144,9 +141,8 @@ export const useNotifications = () => {
         detail: { type: 'markAllAsRead' } 
       }));
       
-      console.log('✅ Todas las notificaciones marcadas como leídas');
     } catch (err) {
-      console.error('Error marcando todas las notificaciones como leídas:', err);
+      // Error marcando todas las notificaciones como leídas
       setError(err.message);
       // Recargar notificaciones en caso de error
       loadNotifications();
@@ -167,9 +163,8 @@ export const useNotifications = () => {
         detail: { type: 'delete', notificationId } 
       }));
       
-      console.log('🗑️ Notificación eliminada:', notificationId);
     } catch (err) {
-      console.error('Error eliminando notificación:', err);
+      // Error eliminando notificación
       setError(err.message);
     }
   }, []);
@@ -184,19 +179,15 @@ export const useNotifications = () => {
   useEffect(() => {
     // Verificar si ya hay una instancia manejando WebSocket listeners
     if (window.notificationListenerActive) {
-      console.log('� Instancia de useNotifications ya maneja WebSocket, saltando...');
       return;
     }
 
     // Marcar que esta instancia maneja los listeners
     window.notificationListenerActive = true;
-    console.log('🎯 Esta instancia de useNotifications manejará WebSocket listeners');
 
     const handleNewMessage = async (payload) => {
       // Solo crear notificación si el mensaje no es del usuario actual
       if (payload.senderId && payload.senderId !== webSocketService.currentUserId) {
-        console.log('💬 Creando notificación de mensaje nuevo:', payload);
-        
         const notificationPayload = {
           id: `msg_${payload.id}_${Date.now()}`, // ID único para notificación
           title: 'Nuevo mensaje',
@@ -221,7 +212,6 @@ export const useNotifications = () => {
       // Limpiar listeners y liberar el flag
       webSocketService.off('newMessage', handleNewMessage);
       window.notificationListenerActive = false;
-      console.log('🧹 Instancia de useNotifications liberó WebSocket listeners');
     };
   }, [addNotification]);
 
