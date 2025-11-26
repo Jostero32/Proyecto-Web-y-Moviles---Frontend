@@ -248,6 +248,12 @@ export const userAPI = {
       // Error refreshing user data
     }
     return null;
+  },
+
+  // Calificar a un vendedor
+  rateSeller: async (sellerId, score, productId) => {
+    const response = await api.post(`/users/${sellerId}/rate`, { score, productId });
+    return response.data;
   }
 };
 

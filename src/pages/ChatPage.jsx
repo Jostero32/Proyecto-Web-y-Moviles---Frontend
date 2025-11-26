@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch } from 'react-icons/fi';
+import { FiSend, FiChevronLeft, FiMessageSquare, FiSearch, FiStar } from 'react-icons/fi';
 import usePageTitle from '../hooks/usePageTitle';
 import { MdVerified } from 'react-icons/md';
 import { authAPI, conversationAPI, messageAPI, userAPI, productAPI, API_BASE_URL } from '../services/api';
 import { useWebSocket, useWebSocketMessages, useOnlineUsers } from '../hooks/useWebSocket';
 import MessageStatusIcon from '../components/MessageStatusIcon';
+import RatingSellerModal from '../components/RatingSellerModal';
 import { useMessageVisibility } from '../hooks/useMessageVisibility';
 
 // Función para formatear fecha relativa para mensajes
@@ -78,6 +79,8 @@ function ChatPage() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [isCurrentUserBuyer, setIsCurrentUserBuyer] = useState(false);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
@@ -293,6 +296,11 @@ function ChatPage() {
       // Mapear mensajes del backend al formato UI
       const userData = authAPI.getUserData();
       const currentUserIdForMapping = userData?.id || currentUserId;
+      
+      // Detectar si el usuario actual es el comprador
+      const isBuyer = conversation.isCurrentUserBuyer;
+      setIsCurrentUserBuyer(isBuyer);
+      
       const mappedMessages = backendMessages.map(msg => {
         const isOwn = msg.senderId === currentUserIdForMapping;
         let status = 'sent';
@@ -309,8 +317,10 @@ function ChatPage() {
           status: status,
           originalData: msg
         };
-      });
+      }).filter(msg => msg !== null);
+      
       setMessagesFromAPI(mappedMessages);
+      
       // Resetear contador de no leídos al abrir el chat
       setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, unread: 0 } : c));
       navigate(`/chat/${conversation.id}`);
@@ -430,7 +440,9 @@ function ChatPage() {
             lastMessageTime: lastMessage ? formatMessageTime(lastMessage.createdAt || lastMessage.sentAt) : '',
             unread: unreadCount,
             originalData: conversation,
-            isCurrentUserBuyer
+            isCurrentUserBuyer,
+            isRated: conversation.isRated || false,
+            rating: conversation.rating || 0
           };
         })
       );
@@ -581,6 +593,45 @@ function ChatPage() {
       }, 2000);
     }
   }, [selectedChat, isConnected, startTyping, stopTyping]);
+
+  // Manejar envío de rating desde el componente (Modal)
+  const handleOpenRatingModal = () => {
+    setShowRatingModal(true);
+  };
+
+  const handleCloseRatingModal = () => {
+    setShowRatingModal(false);
+  };
+
+  const handleRatingSubmitModal = async (ratingData) => {
+    try {
+      // Llamar al backend con userAPI.rateSeller(sellerId, score, productId)
+      // Backend retorna {message, rating, reviewCount}
+      await userAPI.rateSeller(ratingData.sellerId, ratingData.score, ratingData.productId);
+      
+      // Actualizar el estado del chat seleccionado para mostrar que ya fue calificado
+      setSelectedChat(prev => ({
+        ...prev,
+        isRated: true,
+        rating: ratingData.score
+      }));
+      
+      // También actualizar en la lista de conversaciones
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === selectedChat.id
+            ? { ...conv, isRated: true, rating: ratingData.score }
+            : conv
+        )
+      );
+      
+      handleCloseRatingModal();
+    } catch (error) {
+      console.error('Error al enviar calificación:', error);
+      alert('Error al enviar la calificación. Intenta de nuevo.');
+      throw error;
+    }
+  };
 
   // Cargar conversaciones al montar el componente
   useEffect(() => {
@@ -773,6 +824,23 @@ function ChatPage() {
                       >
                         Ver
                       </button>
+                      {isCurrentUserBuyer && (
+                        <button
+                          onClick={handleOpenRatingModal}
+                          disabled={selectedChat.isRated}
+                          className={`px-4 py-2 text-white rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 ${
+                            selectedChat.isRated
+                              ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                              : 'bg-emerald-600 hover:bg-emerald-700'
+                          }`}
+                        >
+                          <FiStar size={16} />
+                          {selectedChat.isRated 
+                            ? `Has calificado con ${selectedChat.rating} ${selectedChat.rating === 1 ? 'estrella' : 'estrellas'}`
+                            : 'Calificar Vendedor'
+                          }
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -884,6 +952,8 @@ function ChatPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Componente de Rating eliminado - ahora es un modal */}
                   
                   <div ref={messagesEndRef} />
                 </div>
@@ -928,6 +998,19 @@ function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Calificación de Vendedor */}
+      {selectedChat && (
+        <RatingSellerModal
+          isOpen={showRatingModal}
+          onClose={handleCloseRatingModal}
+          sellerId={selectedChat.otherUserId}
+          sellerName={selectedChat.vendorName}
+          conversationId={selectedChat.id}
+          productId={selectedChat.product.id}
+          onSubmit={handleRatingSubmitModal}
+        />
+      )}
     </div>
   );
 }

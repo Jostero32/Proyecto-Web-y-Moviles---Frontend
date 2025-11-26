@@ -6,7 +6,8 @@ import {
   FiChevronLeft, 
   FiMessageCircle, 
   FiHeart, 
-  FiShare2
+  FiShare2,
+  FiStar
 } from 'react-icons/fi';
 import { HiSparkles } from 'react-icons/hi2';
 import { MdVerified } from 'react-icons/md';
@@ -24,6 +25,51 @@ import {
 function ProductoDetallePage() {
   // Estado para modal de compartir
   const [shareModal, setShareModal] = useState(false);
+  
+  // Función para renderizar estrellas de rating
+  const renderRatingStars = (rating, reviewCount) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    
+    for (let i = 1; i <= 5; i++) {
+      if (i <= fullStars) {
+        stars.push(
+          <FiStar key={i} size={16} className="fill-yellow-400 text-yellow-400" />
+        );
+      } else if (i === fullStars + 1 && hasHalfStar) {
+        stars.push(
+          <div key={i} className="relative">
+            <FiStar size={16} className="text-gray-300" />
+            <div className="absolute top-0 left-0 overflow-hidden" style={{ width: '50%' }}>
+              <FiStar size={16} className="fill-yellow-400 text-yellow-400" />
+            </div>
+          </div>
+        );
+      } else {
+        stars.push(
+          <FiStar key={i} size={16} className="text-gray-300" />
+        );
+      }
+    }
+    
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
+          {stars}
+        </div>
+        <span className="text-sm font-semibold text-gray-700">
+          {rating.toFixed(1)}
+        </span>
+        {reviewCount > 0 && (
+          <span className="text-xs text-gray-500">
+            ({reviewCount} {reviewCount === 1 ? 'reseña' : 'reseñas'})
+          </span>
+        )}
+      </div>
+    );
+  };
+  
   // Función para copiar la URL al portapapeles y mostrar modal
   const handleShare = async () => {
     try {
@@ -91,7 +137,9 @@ function ProductoDetallePage() {
               memberSince: sellerData.createdAt ? 
                 `Miembro desde ${new Date(sellerData.createdAt).getFullYear()}` : 'Miembro nuevo',
               avatar: sellerData.avatarUrl ? 
-                (sellerData.avatarUrl.startsWith('http') ? sellerData.avatarUrl : `${API_BASE_URL}${sellerData.avatarUrl}`) : null
+                (sellerData.avatarUrl.startsWith('http') ? sellerData.avatarUrl : `${API_BASE_URL}${sellerData.avatarUrl}`) : null,
+              rating: typeof sellerData.rating === 'number' ? sellerData.rating : (parseFloat(sellerData.rating) || 0),
+              reviewCount: sellerData.reviewCount || 0
             };
           } catch {
             // Error obteniendo datos del vendedor
@@ -524,8 +572,8 @@ function ProductoDetallePage() {
                 {/* Info del Vendedor */}
                 <div className="pt-6 border-t">
                   <p className="text-sm text-gray-500 mb-3">Vendedor</p>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0">
                       {product.seller.avatar ? (
                         <img 
                           src={product.seller.avatar} 
@@ -545,14 +593,16 @@ function ProductoDetallePage() {
                         {product.seller.name.charAt(0).toUpperCase()}
                       </div>
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <p className="font-bold text-gray-900">
                         {product.seller.name}
                       </p>
-                      <p className="text-sm text-gray-500">{product.seller.memberSince}</p>
+                      <p className="text-sm text-gray-500 mb-2">{product.seller.memberSince}</p>
+                      {typeof product.seller.rating !== 'undefined' && (
+                        renderRatingStars(product.seller.rating, product.seller.reviewCount)
+                      )}
                     </div>
                   </div>
-
                 </div>
               </div>
 

@@ -346,7 +346,7 @@ function RegisterPage() {
                     value={formData.password}
                     onChange={handleInputChange}
                     className="w-full px-2 sm:px-3 py-1.5 sm:py-2 pr-7 sm:pr-9 rounded border border-gray-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-200 focus:outline-none transition-all glass-effect text-xs sm:text-sm"
-                    placeholder="8+ chars"
+                    placeholder="más de 8 caracteres"
                     minLength="8"
                     required
                   />
@@ -362,7 +362,7 @@ function RegisterPage() {
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
-                  Confirmar
+                  Confirmar contraseña
                 </label>
                 <div className="relative">
                   <input
