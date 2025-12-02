@@ -273,6 +273,59 @@ function ChatPage() {
     }, 100);
   }, [messages]);
 
+  // Escuchar nuevos mensajes de WebSocket para actualizar y reordenar la lista de conversaciones
+  useEffect(() => {
+    const handleNewMessageForList = (payload) => {
+      const messageConvId = payload.conversationId?.toString();
+      const now = new Date().toISOString();
+      
+      setConversations(prevConversations => {
+        // Verificar si la conversación existe en la lista
+        const conversationExists = prevConversations.some(
+          conv => conv.id?.toString() === messageConvId
+        );
+        
+        if (!conversationExists) {
+          // Si la conversación no existe, no hacer nada aquí
+          // Se recargará cuando el usuario navegue a la página de chat
+          return prevConversations;
+        }
+        
+        // Actualizar la conversación con el nuevo mensaje
+        const updatedConversations = prevConversations.map(conv => {
+          if (conv.id?.toString() === messageConvId) {
+            const isFromMe = payload.senderId === currentUserId;
+            return {
+              ...conv,
+              lastMessage: payload.content,
+              lastMessageTime: formatMessageTime(payload.sentAt || payload.createdAt || now),
+              lastMessageDate: payload.sentAt || payload.createdAt || now,
+              // Incrementar unread solo si el mensaje no es del usuario actual y no es el chat seleccionado
+              unread: (!isFromMe && selectedChat?.id?.toString() !== messageConvId) 
+                ? (conv.unread || 0) + 1 
+                : conv.unread
+            };
+          }
+          return conv;
+        });
+        
+        // El ordenamiento se hace automáticamente en filteredConversations
+        return updatedConversations;
+      });
+    };
+
+    // Suscribirse a eventos de nuevos mensajes
+    import('../services/websocket').then(({ websocketService }) => {
+      websocketService.on('newMessage', handleNewMessageForList);
+    });
+
+    return () => {
+      import('../services/websocket').then(({ websocketService }) => {
+        websocketService.off('newMessage', handleNewMessageForList);
+      });
+    };
+  }, [currentUserId, selectedChat]);
+
   // ...existing code...
 
   // Actualizar estado online de conversaciones cuando cambie la lista de usuarios online
@@ -438,6 +491,7 @@ function ChatPage() {
             },
             lastMessage: lastMessageText,
             lastMessageTime: lastMessage ? formatMessageTime(lastMessage.createdAt || lastMessage.sentAt) : '',
+            lastMessageDate: lastMessage ? (lastMessage.createdAt || lastMessage.sentAt) : null,
             unread: unreadCount,
             originalData: conversation,
             isCurrentUserBuyer,
@@ -643,10 +697,17 @@ function ChatPage() {
     loadConversations();
   }, [loadConversations, navigate]);
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.product.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = conversations
+    .filter(conv =>
+      conv.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.product.title.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Ordenar por fecha del último mensaje (más reciente primero)
+      const dateA = a.lastMessageDate ? new Date(a.lastMessageDate).getTime() : 0;
+      const dateB = b.lastMessageDate ? new Date(b.lastMessageDate).getTime() : 0;
+      return dateB - dateA;
+    });
 
   return (
     <div className="min-h-screen bg-gray-50">
