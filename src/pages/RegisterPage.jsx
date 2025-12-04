@@ -3,6 +3,51 @@ import { useState } from 'react';
 import { authAPI } from '../services/api';
 import logo from '../assets/Logo de Shop&Buy.png';
 
+/**
+ * Valida una cédula ecuatoriana usando el algoritmo de módulo 10
+ * @param {string} cedula - La cédula a validar (10 dígitos)
+ * @returns {boolean} - true si la cédula es válida, false si no
+ */
+const validarCedulaEcuatoriana = (cedula) => {
+  // Debe tener exactamente 10 dígitos numéricos
+  if (!/^\d{10}$/.test(cedula)) {
+    return false;
+  }
+
+  const digitos = cedula.split('').map(Number);
+  
+  // Los dos primeros dígitos corresponden al código de provincia (01-24) o 30
+  const codigoProvincia = parseInt(cedula.substring(0, 2), 10);
+  if (!((codigoProvincia >= 1 && codigoProvincia <= 24) || codigoProvincia === 30)) {
+    return false;
+  }
+
+  // El tercer dígito debe ser menor a 6 (para cédulas de personas naturales)
+  const tercerDigito = digitos[2];
+  if (tercerDigito >= 6) {
+    return false;
+  }
+
+  // Algoritmo de validación módulo 10
+  const coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+  let suma = 0;
+
+  for (let i = 0; i < 9; i++) {
+    let resultado = digitos[i] * coeficientes[i];
+    // Si el resultado es mayor a 9, se resta 9
+    if (resultado > 9) {
+      resultado -= 9;
+    }
+    suma += resultado;
+  }
+
+  // El dígito verificador es lo que falta para llegar al siguiente múltiplo de 10
+  const digitoVerificadorCalculado = (10 - (suma % 10)) % 10;
+  const digitoVerificador = digitos[9];
+
+  return digitoVerificadorCalculado === digitoVerificador;
+};
+
 function RegisterPage() {
   const [formData, setFormData] = useState({
     dni: '',
@@ -91,9 +136,9 @@ function RegisterPage() {
       setError('Todos los campos son requeridos');
       return false;
     }
-    // Validar que el DNI tenga un formato válido (solo números)
-    if (!/^\d+$/.test(formData.dni)) {
-      setError('La cédula debe contener solo números');
+    // Validar cédula ecuatoriana
+    if (!validarCedulaEcuatoriana(formData.dni)) {
+      setError('La cédula ingresada no es válida.');
       return false;
     }
     // Validar que el teléfono tenga un formato válido

@@ -70,14 +70,42 @@ function ProductoDetallePage() {
     );
   };
   
-  // Función para copiar la URL al portapapeles y mostrar modal
+  // Función para copiar la URL al portapapeles (funciona sin HTTPS)
   const handleShare = async () => {
+    const url = window.location.href;
+    
+    // Método 1: Intentar con Clipboard API (solo funciona en HTTPS o localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareModal(true);
+        setTimeout(() => setShareModal(false), 1500);
+        return;
+      } catch {
+        // Continuar al fallback
+      }
+    }
+    
+    // Método 2: Fallback usando textarea (funciona en HTTP)
+    const textArea = document.createElement('textarea');
+    textArea.value = url;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '-9999px';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      document.execCommand('copy');
       setShareModal(true);
       setTimeout(() => setShareModal(false), 1500);
-    } catch (err) {
-      alert('No se pudo copiar la URL', err);
+    } catch {
+      // Método 3: Último recurso - mostrar prompt
+      prompt('Copia este enlace:', url);
+    } finally {
+      document.body.removeChild(textArea);
     }
   };
   const { id } = useParams();
